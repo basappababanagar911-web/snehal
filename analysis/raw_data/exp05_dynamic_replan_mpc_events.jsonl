@@ -1,0 +1,4 @@
+{"timestamp": 0.0, "step": 0, "event": "RUN_STARTED", "details": {"controller": "MPC", "run_id": "exp05_dynamic_replan_mpc"}}
+{"timestamp": 5.55, "step": 111, "event": "CORRIDOR_BLOCKED", "details": {"obstacle_pos": [14.0, 0.0]}}
+{"timestamp": 5.55, "step": 111, "event": "REPLAN_TRIGGERED", "details": {"old_route_id": "R1", "new_route_id": "R2"}}
+{"timestamp": 23.9, "step": 479, "event": "RUN_COMPLETED", "details": {"status": "SUCCESS", "total_steps": 479}}

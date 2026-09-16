@@ -1,0 +1,2 @@
+{"timestamp": 0.0, "step": 0, "event": "RUN_STARTED", "details": {"controller": "MPC", "run_id": "exp06_multi_dest_B"}}
+{"timestamp": 26.85, "step": 538, "event": "RUN_COMPLETED", "details": {"status": "SUCCESS", "total_steps": 538}}

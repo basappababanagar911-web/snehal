@@ -1,0 +1,2 @@
+{"timestamp": 0.0, "step": 0, "event": "RUN_STARTED", "details": {"controller": "MPC", "run_id": "exp02_curved_mpc"}}
+{"timestamp": 23.4, "step": 469, "event": "RUN_COMPLETED", "details": {"status": "SUCCESS", "total_steps": 469}}

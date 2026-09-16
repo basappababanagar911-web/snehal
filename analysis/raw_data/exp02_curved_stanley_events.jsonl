@@ -1,0 +1,2 @@
+{"timestamp": 0.0, "step": 0, "event": "RUN_STARTED", "details": {"controller": "STANLEY", "run_id": "exp02_curved_stanley"}}
+{"timestamp": 23.65, "step": 474, "event": "RUN_COMPLETED", "details": {"status": "SUCCESS", "total_steps": 474}}
