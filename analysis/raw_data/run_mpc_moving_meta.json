@@ -1,11 +1,11 @@
 {
-  "run_id": "run_mpc_replan",
+  "run_id": "run_mpc_moving",
   "controller": "mpc",
   "destination": "DEST_BAY_01",
-  "scenario": "replan",
+  "scenario": "moving",
   "route_length": 31.884,
   "controller_type": "MPC",
-  "start_time_iso": "2026-09-17 23:19:47",
+  "start_time_iso": "2026-09-17 23:19:55",
   "columns": [
     "timestamp",
     "step",
