@@ -1,4 +1,4 @@
-﻿"""
+"""
 compute_metrics.py
 ==================
 SteadyPath Automated Batch Metrics Pipeline (Snehal's Module - Day 12 & Day 13)
@@ -18,8 +18,12 @@ import json
 import csv
 from typing import List, Dict, Any, Optional
 
-from data_logger import SteadyPathLogger
-from evaluator import SteadyPathEvaluator, RunMetrics
+try:
+    from data_logger import SteadyPathLogger
+    from evaluator import SteadyPathEvaluator, RunMetrics
+except ImportError:
+    from analysis.src.data_logger import SteadyPathLogger
+    from analysis.src.evaluator import SteadyPathEvaluator, RunMetrics
 
 
 class MetricsBatchProcessor:

@@ -1,0 +1,4 @@
+{"timestamp": 0.0, "step": 0, "event": "RUN_STARTED", "details": {"controller": "MPC", "run_id": "run_mpc_replan"}}
+{"timestamp": 5.05, "step": 101, "event": "CORRIDOR_BLOCKED", "details": {"pos": [14.0, 0.0]}}
+{"timestamp": 5.05, "step": 101, "event": "REPLAN_TRIGGERED", "details": {"new_route_id": "route_DEST_BAY_01_replan", "detour_len": 32.244}}
+{"timestamp": 24.55, "step": 492, "event": "RUN_COMPLETED", "details": {"status": "SUCCESS", "total_steps": 492}}
