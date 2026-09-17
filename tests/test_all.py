@@ -201,6 +201,14 @@ class TestSimulationEnvironment(unittest.TestCase):
         expected_clearance = 5.0 - (0.5 + 0.35) - snapshot.vehicle_x
         self.assertAlmostEqual(snapshot.min_clearance, expected_clearance, places=3)
 
+from tests.test_ros2_nodes import (
+    TestROS2MathAndTransforms,
+    TestROS2MPCNodeLogic,
+    TestROS2PlannerNodeLogic,
+    TestROS2SimBridgeLogic,
+    TestROS2TelemetryLoggerLogic,
+)
+
 
 if __name__ == "__main__":
     unittest.main()
