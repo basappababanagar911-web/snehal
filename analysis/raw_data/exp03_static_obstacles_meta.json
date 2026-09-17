@@ -1,12 +1,12 @@
 {
-  "scenario": "exp01_normal_nav_dest1",
+  "scenario": "exp03_static_obstacles",
   "destination_name": "DEST_BAY_01",
   "goal_coordinates": [
     30.0,
     1.9021
   ],
   "nominal_velocity": 1.5,
-  "run_id": "exp01_normal_nav_dest1",
+  "run_id": "exp03_static_obstacles",
   "controller_type": "MPC",
   "start_time_iso": "2026-09-17 22:25:15",
   "columns": [

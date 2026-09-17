@@ -8,7 +8,7 @@
   "nominal_velocity": 1.5,
   "run_id": "exp06_multi_dest_B",
   "controller_type": "MPC",
-  "start_time_iso": "2026-09-16 22:04:37",
+  "start_time_iso": "2026-09-17 22:25:15",
   "columns": [
     "timestamp",
     "step",

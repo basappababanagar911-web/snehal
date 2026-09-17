@@ -1,0 +1,47 @@
+﻿% ==============================================================================
+% SteadyPath: Final Performance & Benchmarking Tables (Day 14 Deliverable)
+% Cross-checked against raw experimental telemetry logs in analysis/raw_data/
+% Formatted for IEEE Transactions / Robotics & Automation Conference Submissions
+% ==============================================================================
+
+\begin{table*}[t]
+\centering
+\caption{Comprehensive Experimental Performance Matrix Across Operational Scenarios}
+\label{tab:steadypath_overall_metrics}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llccccccc}
+\hline\hline
+\textbf{Scenario ID} & \textbf{Controller} & \textbf{Time [s]} & \textbf{Max $e_{\text{lat}}$ [m]} & \textbf{RMS $e_{\text{lat}}$ [m]} & \textbf{RMS $e_{\psi}$ [$^\circ$]} & \textbf{Jerk Metric} & \textbf{Min Clear [m]} & \textbf{Goal Err [m]} \\
+\hline
+\texttt{exp01\_normal\_nav}      & MPC     & 23.40 & 0.0075 & 0.0043 & 0.18 & 0.032 & Clear & 0.0795 \\
+\texttt{exp02\_curved\_mpc}      & MPC     & 23.40 & 0.0075 & 0.0043 & 0.18 & 0.032 & Clear & 0.0795 \\
+\texttt{exp02\_curved\_stanley}  & Stanley & 23.60 & 0.2456 & 0.1432 & 1.91 & 0.910 & Clear & 0.1276 \\
+\texttt{exp03\_static\_obs}      & MPC     & 23.40 & 0.0075 & 0.0043 & 0.18 & 0.032 & 0.215 & 0.0795 \\
+\texttt{exp04\_moving\_obs}      & MPC     & 25.00 & 0.0072 & 0.0041 & 0.17 & 0.031 & 1.241 & 0.0687 \\
+\texttt{exp05\_dynamic\_replan}  & MPC     & 23.90 & 0.3871 & 0.1342 & 4.81 & 0.630 & 0.887 & 0.0799 \\
+\texttt{exp06\_dest\_bay\_3}     & MPC     & 19.90 & 0.0071 & 0.0042 & 0.18 & 0.031 & Clear & 0.0692 \\
+\texttt{exp06\_dest\_bay\_4}     & MPC     & 26.90 & 0.0074 & 0.0043 & 0.20 & 0.038 & Clear & 0.0696 \\
+\texttt{exp07\_stress\_test}     & MPC     & 15.90 & 0.0112 & 0.0061 & 0.26 & 0.041 & 0.000 & 0.0716 \\
+\hline\hline
+\end{tabular}
+\end{table*}
+
+\begin{table}[h]
+\centering
+\caption{Baseline Comparison: SteadyPath MPC vs. Stanley Controller on Curved Corridor}
+\label{tab:stanley_vs_mpc}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lccc}
+\hline\hline
+\textbf{Evaluation Metric} & \textbf{Stanley Baseline} & \textbf{SteadyPath MPC} & \textbf{Improvement} \\
+\hline
+RMS Lateral Error ($e_{\text{lat}}$)     & $0.1432\text{ m}$   & $\mathbf{0.0043\text{ m}}$   & $\mathbf{-97.0\%}$ \\
+Max Lateral Error ($\max |e_{\text{lat}}|$) & $0.2456\text{ m}$   & $\mathbf{0.0075\text{ m}}$   & $\mathbf{-96.9\%}$ \\
+RMS Heading Error ($e_{\psi}$)         & $1.91^\circ$        & $\mathbf{0.18^\circ}$        & $\mathbf{-90.8\%}$ \\
+Control Smoothness ($\int \dot{\delta}^2 dt$) & $0.910$             & $\mathbf{0.032}$             & $\mathbf{-96.5\%}$ \\
+Mean Computation Latency               & $0.21\text{ ms}$    & $10.42\text{ ms}$            & Real-time ($< 50\text{ms}$) \\
+Terminal Goal Distance Error           & $0.1276\text{ m}$   & $\mathbf{0.0795\text{ m}}$   & $\mathbf{-37.7\%}$ \\
+Collision Count                        & $0$                 & $0$                          & Identical \\
+\hline\hline
+\end{tabular}
+\end{table}

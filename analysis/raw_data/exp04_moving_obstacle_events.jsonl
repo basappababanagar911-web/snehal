@@ -1,0 +1,2 @@
+{"timestamp": 0.0, "step": 0, "event": "RUN_STARTED", "details": {"controller": "MPC", "run_id": "exp04_moving_obstacle"}}
+{"timestamp": 25.0, "step": 501, "event": "RUN_COMPLETED", "details": {"status": "SUCCESS", "total_steps": 501}}

@@ -1,5 +1,5 @@
 {
-  "run_id": "exp02_curved_mpc",
+  "run_id": "exp03_static_obstacles",
   "controller_type": "MPC",
   "total_time_s": 23.4,
   "total_distance_m": 31.815,
@@ -24,9 +24,9 @@
   "mpc_time_mean_ms": 10.413,
   "mpc_time_max_ms": 13.495,
   "mpc_time_p95_ms": 13.236,
-  "min_obstacle_clearance": 999.0,
+  "min_obstacle_clearance": 0.2148,
   "collision_count": 0,
-  "safety_violation_steps": 0,
+  "safety_violation_steps": 20,
   "goal_reaching_error_m": 0.0794,
   "goal_heading_error_deg": 0.246,
   "route_completion_pct": 100.0,

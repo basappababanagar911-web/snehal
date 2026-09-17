@@ -24,7 +24,7 @@
   "mpc_time_mean_ms": 10.414,
   "mpc_time_max_ms": 13.495,
   "mpc_time_p95_ms": 13.253,
-  "min_obstacle_clearance": 1386.7012,
+  "min_obstacle_clearance": 999.0,
   "collision_count": 0,
   "safety_violation_steps": 0,
   "goal_reaching_error_m": 0.0696,

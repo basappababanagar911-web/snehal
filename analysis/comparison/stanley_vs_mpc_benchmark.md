@@ -9,5 +9,5 @@
 | | **Max Lateral Error** | `0.2456 m` | `0.0075 m` | **+96.9%** |
 | | **RMS Heading Error** | `1.91°` | `0.18°` | **+90.8%** |
 | | **Steering Jerk / Smoothness** | `0.91` | `0.03` | **+96.5%** (Smoother) |
-| | **Min Obstacle Clearance** | `1389.536 m` | `1389.695 m` | `+0.159 m` |
+| | **Min Obstacle Clearance** | `999.000 m` | `999.000 m` | `+0.000 m` |
 | | **Goal Distance Error** | `0.1276 m` | `0.0794 m` | `-0.0482 m` |
