@@ -1,0 +1,200 @@
+<?xml version="1.0"?>
+<robot name="steadypath_agv">
+
+  <!-- Materials -->
+  <material name="industrial_orange">
+    <color rgba="0.95 0.45 0.05 1.0"/>
+  </material>
+  <material name="dark_chassis">
+    <color rgba="0.15 0.15 0.17 1.0"/>
+  </material>
+  <material name="wheel_rubber">
+    <color rgba="0.08 0.08 0.08 1.0"/>
+  </material>
+  <material name="lidar_blue">
+    <color rgba="0.1 0.6 0.9 1.0"/>
+  </material>
+  <material name="safety_beacon">
+    <color rgba="1.0 0.8 0.0 0.9"/>
+  </material>
+
+  <!-- Base Footprint (Ground Projection) -->
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0.15" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Base Link (AGV Main Chassis) -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0.6 0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="1.6 0.85 0.4"/>
+      </geometry>
+      <material name="industrial_orange"/>
+    </visual>
+    <visual>
+      <origin xyz="0.6 0 0.05" rpy="0 0 0"/>
+      <geometry>
+        <box size="1.65 0.88 0.1"/>
+      </geometry>
+      <material name="dark_chassis"/>
+    </visual>
+    <collision>
+      <origin xyz="0.6 0 0.2" rpy="0 0 0"/>
+      <geometry>
+        <box size="1.6 0.85 0.4"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="250.0"/>
+      <origin xyz="0.6 0 0.15" rpy="0 0 0"/>
+      <inertia ixx="18.5" ixy="0.0" ixz="0.0" iyy="58.2" iyz="0.0" izz="66.7"/>
+    </inertial>
+  </link>
+
+  <!-- Rear Left Traction Wheel -->
+  <link name="rear_left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.15" length="0.1"/>
+      </geometry>
+      <material name="wheel_rubber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.15" length="0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rear_left_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="rear_left_wheel"/>
+    <origin xyz="0.0 0.4 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Rear Right Traction Wheel -->
+  <link name="rear_right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.15" length="0.1"/>
+      </geometry>
+      <material name="wheel_rubber"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.15" length="0.1"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="rear_right_wheel_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="rear_right_wheel"/>
+    <origin xyz="0.0 -0.4 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Front Steering Pivot -->
+  <link name="front_steer_link">
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.05" ixy="0" ixz="0" iyy="0.05" iyz="0" izz="0.05"/>
+    </inertial>
+  </link>
+
+  <joint name="front_steer_joint" type="revolute">
+    <parent link="base_link"/>
+    <child link="front_steer_link"/>
+    <origin xyz="1.2 0.0 0.0" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.5236" upper="0.5236" effort="50.0" velocity="2.0"/>
+  </joint>
+
+  <!-- Front Left Steered Wheel -->
+  <link name="front_left_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.15" length="0.1"/>
+      </geometry>
+      <material name="wheel_rubber"/>
+    </visual>
+  </link>
+
+  <joint name="front_left_wheel_joint" type="continuous">
+    <parent link="front_steer_link"/>
+    <child link="front_left_wheel"/>
+    <origin xyz="0.0 0.4 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- Front Right Steered Wheel -->
+  <link name="front_right_wheel">
+    <visual>
+      <origin xyz="0 0 0" rpy="1.570796 0 0"/>
+      <geometry>
+        <cylinder radius="0.15" length="0.1"/>
+      </geometry>
+      <material name="wheel_rubber"/>
+    </visual>
+  </link>
+
+  <joint name="front_right_wheel_joint" type="continuous">
+    <parent link="front_steer_link"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="0.0 -0.4 0.0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+
+  <!-- 2D Safety LiDAR Scanner -->
+  <link name="laser_frame">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.08"/>
+      </geometry>
+      <material name="lidar_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.06" length="0.08"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="laser_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="laser_frame"/>
+    <origin xyz="1.35 0.0 0.28" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Warning Beacon -->
+  <link name="beacon_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.07"/>
+      </geometry>
+      <material name="safety_beacon"/>
+    </visual>
+  </link>
+
+  <joint name="beacon_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="beacon_link"/>
+    <origin xyz="0.3 0.0 0.44" rpy="0 0 0"/>
+  </joint>
+
+</robot>

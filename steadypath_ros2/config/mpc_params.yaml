@@ -1,0 +1,34 @@
+# ====================================================================
+# SteadyPath AGV Motion Control ROS 2 Configuration
+# ====================================================================
+
+steadypath_mpc_node:
+  ros__parameters:
+    wheelbase: 1.2             # Axle-to-axle distance (meters)
+    control_frequency: 50.0    # Real-time control loop rate (Hz)
+    horizon_n: 15              # Prediction horizon steps
+    mpc_dt: 0.05               # Discretization sample time (seconds)
+    max_velocity: 1.8          # Peak longitudinal speed limit (m/s)
+    max_accel: 1.2             # Acceleration limit (m/s^2)
+    max_steer_rad: 0.5236      # Maximum steering angle (30 degrees)
+    q_weights: [10.0, 10.0, 20.0, 2.0]   # State weights: [x, y, psi, v]
+    r_weights: [0.1, 1.0]                # Control effort weights: [accel, delta]
+    rd_weights: [0.5, 5.0]               # Slew rate weights: [d_accel, d_delta]
+
+steadypath_planner_node:
+  ros__parameters:
+    default_velocity: 1.5      # Nominal reference cruising speed (m/s)
+    obstacle_detect_dist: 3.5  # Dynamic replanning lookahead threshold (meters)
+    destination_id: "DEST_BAY_01"  # Default warehouse destination
+    plan_publish_frequency: 2.0    # Global path refresh rate (Hz)
+
+steadypath_sim_bridge_node:
+  ros__parameters:
+    sim_frequency: 50.0        # Physical simulation step frequency (Hz)
+    wheelbase: 1.2             # Vehicle model wheelbase
+    scenario: "moving"         # Scenario preset: 'normal', 'replan', 'moving'
+
+steadypath_telemetry_logger_node:
+  ros__parameters:
+    log_frequency: 50.0        # Telemetry capture frequency (Hz)
+    run_name: "steadypath_ros2_production"

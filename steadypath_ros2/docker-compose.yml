@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  steadypath-core:
+    build:
+      context: ..
+      dockerfile: steadypath_ros2/Dockerfile
+    image: steadypath_ros2:latest
+    container_name: steadypath_agv_runtime
+    network_mode: host
+    ipc: host
+    environment:
+      - ROS_DOMAIN_ID=42
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../analysis/telemetry_logs:/root/ros2_ws/src/steadypath/analysis/telemetry_logs
+    command: >
+      bash -c "source /root/ros2_ws/install/setup.bash &&
+               ros2 launch steadypath_ros2 steadypath.launch.py scenario:=moving destination_id:=DEST_BAY_01 use_rviz:=false"
+    restart: unless-stopped
