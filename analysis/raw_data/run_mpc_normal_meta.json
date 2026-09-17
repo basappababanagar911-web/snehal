@@ -5,7 +5,7 @@
   "scenario": "normal",
   "route_length": 31.884,
   "controller_type": "MPC",
-  "start_time_iso": "2026-09-17 22:53:26",
+  "start_time_iso": "2026-09-17 22:58:26",
   "columns": [
     "timestamp",
     "step",
