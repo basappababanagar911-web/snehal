@@ -554,9 +554,9 @@
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0f172a);
-    scene.fog = new THREE.Fog(0x0f172a, 40, 115);
+    scene.fog = null; // No fog wall - 100% infinite clear visibility across the warehouse
 
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 180);
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 250);
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -632,10 +632,10 @@
       line.rotation.x = -Math.PI / 2;
       scene.add(line);
     }
-    createSafetyLine(38, 2.6, 92);
-    createSafetyLine(38, -2.6, 92);
+    createSafetyLine(38, 3.6, 92);
+    createSafetyLine(38, -3.6, 92);
 
-    // --- 6. 3D Warehouse Storage Racks (22 Multi-Tier Racks) ---
+    // --- 6. 3D Warehouse Storage Racks (Widened Corridor with Open Crossing Aisles) ---
     function createWarehouseRack(x, y) {
       const rackGroup = new THREE.Group();
       const frameMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4 });
@@ -678,11 +678,26 @@
       scene.add(rackGroup);
     }
 
-    // Line the entire 80m corridor with 22 storage racks on north & south walls
-    for (let rx = 3.0; rx <= 76.0; rx += 6.8) {
-      createWarehouseRack(rx, 4.0);
-      createWarehouseRack(rx, -4.0);
-    }
+    // Position racks along north & south walls at y = +/-6.0m (clear 10.6m transit bay)
+    // Discrete blocks leave open aisles at forklift crossings (x = 18m, 35m, 53m, 69m)
+    const rackXPositions = [4.0, 10.5, 24.5, 42.5, 60.5, 76.0];
+    rackXPositions.forEach(rx => {
+      createWarehouseRack(rx, 6.0);
+      createWarehouseRack(rx, -6.0);
+    });
+
+    // High-visibility zebra crosswalk markings at the 4 forklift crossing aisles
+    [18.0, 35.0, 53.0, 69.0].forEach(xPos => {
+      for (let zy = -3.2; zy <= 3.2; zy += 0.8) {
+        const stripe = new THREE.Mesh(
+          new THREE.PlaneGeometry(2.4, 0.35),
+          new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
+        );
+        stripe.position.set(xPos, 0.02, zy);
+        stripe.rotation.x = -Math.PI / 2;
+        scene.add(stripe);
+      }
+    });
 
     // --- 7. Loading Bays (3D Visual Docking Platforms up to 75m) ---
     for (const [id, d] of Object.entries(destinations)) {
@@ -1201,10 +1216,11 @@
 
       // High-Clarity Camera Modes
       if (activeCamera === 'chase') {
-        const camDist = 6.8;
+        const camDist = 6.5;
         const camHeight = 3.6;
         const camX = veh.x - camDist * Math.cos(veh.yaw);
-        const camZ = -veh.y + camDist * Math.sin(veh.yaw);
+        const rawCamZ = -veh.y + camDist * Math.sin(veh.yaw) * 0.3;
+        const camZ = Math.max(-3.0, Math.min(3.0, rawCamZ)); // Strictly clamped to corridor center to avoid rack penetration
         camera.position.lerp(new THREE.Vector3(camX, camHeight, camZ), 0.12);
         camera.lookAt(veh.x + 3.8 * Math.cos(veh.yaw), 0.85, -veh.y - 3.8 * Math.sin(veh.yaw));
       } else if (activeCamera === 'top') {
