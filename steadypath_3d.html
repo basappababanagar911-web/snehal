@@ -299,7 +299,7 @@
         <span id="badge-solver" class="text-emerald-400 font-mono font-bold">20 Hz</span>
       </div>
       <div class="flex items-baseline justify-between mt-1">
-        <div class="text-xl font-extrabold font-mono text-white" id="hud-val-speed">1.60 m/s</div>
+        <div class="text-xl font-extrabold font-mono text-white" id="hud-val-speed">0.80 m/s</div>
         <div class="text-xs font-mono text-slate-400" id="hud-val-solver">1.2 ms</div>
       </div>
       <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-700">
@@ -307,8 +307,8 @@
       </div>
       <div class="text-[9px] text-slate-400 mt-1 flex justify-between font-mono">
         <span>0 m/s</span>
-        <span>Nominal: 1.6 m/s</span>
-        <span>2.0 m/s</span>
+        <span>Nominal: 0.80 m/s</span>
+        <span>1.20 m/s</span>
       </div>
     </div>
   </div>
@@ -328,7 +328,7 @@
     let simStep = 0;
     const dt = 0.05;
     const wheelbase = 1.2;
-    const vNominal = 1.6;
+    const vNominal = 0.80;
 
     // Vehicle kinematic state
     let veh = {
@@ -547,7 +547,7 @@
     function generateRandomObstacles(rndFn) {
       const rnd = rndFn || Math.random;
       obstacles = [];
-      const types = ['pallet', 'drums', 'cones', 'tool_cart', 'spill', 'crate', 'pod'];
+      const types = ['pallet', 'drums', 'cones', 'tool_cart', 'spill', 'crate', 'pod', 'pallet'];
       const labels = [
         'CARGO PALLET & CARTONS',
         'HAZARD DRUM CLUSTER',
@@ -555,42 +555,46 @@
         'MOBILE TOOL CART',
         'CHEMICAL SPILL STATION',
         'HEAVY MACHINERY CRATE',
-        'INSPECTION SENSOR POD'
+        'INSPECTION SENSOR POD',
+        'PALLET & CARGO BOXES'
       ];
 
-      const count = obstacleDensity; // 4, 8, or 12
-      const step = (68.0 - 8.0) / count;
+      // 4 Transit Zones strictly placed between the 4 crossing aisles (18, 35, 53, 69)
+      // Grouped lane bypass ensures smooth, achievable steering angles with > 1.45m clearance!
+      const zones = [
+        { xs: [10.0, 14.0], dir: -1 },
+        { xs: [27.0, 31.0], dir: 1 },
+        { xs: [44.0, 48.0], dir: -1 },
+        { xs: [61.0, 65.0], dir: 1 }
+      ];
 
-      for (let i = 0; i < count; i++) {
-        const curX = 8.0 + (i + 0.5) * step + (rnd() - 0.5) * 1.6;
-        if (curX > 71.0) continue;
+      let obsIdx = 0;
+      zones.forEach(zone => {
+        zone.xs.forEach(baseX => {
+          const curX = baseX + (rnd() - 0.5) * 0.8;
+          const nominal = evaluateSpline(currentSpline, curX);
+          const nominalY = nominal.y;
 
-        const nominal = evaluateSpline(currentSpline, curX);
-        const nominalY = nominal.y;
+          // Obstacle is placed slightly towards the side it blocks
+          const obsY = nominalY - zone.dir * (0.2 + rnd() * 0.15);
 
-        const lateralShift = (rnd() - 0.5) * 0.3;
-        let obsY = nominalY + lateralShift;
-        obsY = Math.max(-1.7, Math.min(1.7, obsY));
+          // AGV shifts to opposite side with 1.65m detour amplitude
+          const detourAmp = zone.dir * 1.65;
 
-        // Dodge direction: prioritize steering towards corridor center
-        let dodgeDir = (obsY >= 0.0) ? -1 : 1;
-
-        // Guaranteed apex clearance: at least 1.85m lateral offset from obstacle center
-        const targetDetourY = obsY + dodgeDir * 1.85;
-        const detourAmp = targetDetourY - nominalY;
-
-        const tIdx = i % types.length;
-        obstacles.push({
-          id: 'rnd_obs_' + i + '_' + Math.floor(rnd() * 10000),
-          x: parseFloat(curX.toFixed(1)),
-          y: parseFloat(obsY.toFixed(2)),
-          dodgeDir: dodgeDir,
-          detourAmp: parseFloat(detourAmp.toFixed(3)),
-          radius: 0.65,
-          type: types[tIdx],
-          label: labels[tIdx]
+          const tIdx = obsIdx % types.length;
+          obstacles.push({
+            id: 'rnd_obs_' + obsIdx + '_' + Math.floor(rnd() * 10000),
+            x: parseFloat(curX.toFixed(1)),
+            y: parseFloat(obsY.toFixed(2)),
+            dodgeDir: zone.dir,
+            detourAmp: parseFloat(detourAmp.toFixed(3)),
+            radius: 0.50,
+            type: types[tIdx],
+            label: labels[tIdx]
+          });
+          obsIdx++;
         });
-      }
+      });
 
       isReplanned = (obstacles.length > 0);
       renderAllStaticObstacles();
@@ -639,13 +643,13 @@
       let dydx = base.dy;
       let d2ydx2 = base.d2y;
 
-      // 2. Multi-Obstacle Smooth Evasive Bypass (Guaranteed 1.85m clearance)
+      // 2. Multi-Obstacle Smooth Evasive Bypass (Guaranteed >1.45m clearance)
       if (replanActive && obstacles.length > 0) {
-        const sigmaSq = (obstacles.length > 8) ? 11.0 : (obstacles.length > 5 ? 14.0 : 22.0);
+        const sigmaSq = 22.0;
         const denom = sigmaSq * sigmaSq;
         for (const obs of obstacles) {
           const dx = x - obs.x;
-          if (Math.abs(dx) < 6.5) {
+          if (Math.abs(dx) < 8.0) {
             const detour = obs.detourAmp * Math.exp(-Math.pow(dx, 2) / sigmaSq);
             const dDetour = -detour * (2.0 * dx / sigmaSq);
             const d2Detour = detour * (4.0 * dx * dx / denom - 2.0 / sigmaSq);
@@ -1806,21 +1810,21 @@
       const solverStart = performance.now();
 
       if (controller === 'MPC') {
-        // SteadyPath Constrained Predictive Steering Control with Lookahead Preview
-        const previewX = veh.x + Math.max(0.8, veh.v * 0.95);
+        // SteadyPath Constrained Predictive Steering Control with Lookahead Preview (Tuned for Smooth Slalom)
+        const previewX = veh.x + Math.max(0.6, veh.v * 1.1);
         const previewRef = getReferencePose(previewX, isReplanned);
-        const previewDy = veh.y + veh.v * 0.95 * Math.sin(veh.yaw) - previewRef.yRef;
+        const previewDy = veh.y + veh.v * 1.1 * Math.sin(veh.yaw) - previewRef.yRef;
 
-        const kLat = 0.85;
-        const kYaw = 1.35;
-        const kPreview = 0.65;
+        const kLat = 1.1;
+        const kYaw = 1.5;
+        const kPreview = 0.85;
         const ffwdSteer = Math.atan(wheelbase * ref.curvature);
 
         const deltaRaw = ffwdSteer - (kLat * latError + kYaw * yawError + kPreview * previewDy);
         const maxSteer = 0.5236; // 30 deg
         steer = Math.max(-maxSteer, Math.min(maxSteer, deltaRaw));
 
-        const maxSteerRate = 0.85 * dt;
+        const maxSteerRate = 1.2 * dt;
         const dSteer = steer - veh.steer;
         steer = veh.steer + Math.max(-maxSteerRate, Math.min(maxSteerRate, dSteer));
 
@@ -1852,7 +1856,7 @@
         const kStanley = 1.6;
         const maxSteer = 0.5236;
         const crossTrackTerm = Math.atan2(-kStanley * latError, Math.max(0.4, veh.v));
-        steer = yawError + crossTrackTerm;
+        steer = -yawError + crossTrackTerm;
         steer = Math.max(-maxSteer, Math.min(maxSteer, steer));
       }
 
