@@ -329,8 +329,8 @@
       4: { name: "Bay 4 (Deep Logistics)", x: 75.0, y: 0.0 }
     };
 
-    // Random Path Generator State & Seed
-    let randomPathParams = null;
+    // Random Path Generator State & Spline
+    let currentSpline = null;
     let currentSeed = 10001;
 
     // Obstacles & 3D Containers
@@ -366,42 +366,137 @@
       };
     }
 
-    // --- 2. Procedural Unpredictable Path Generation ---
+    // --- 2. Procedural Authentic Industrial Warehouse Path Generation (Natural Cubic Splines) ---
+    // Replaces repetitive sine-wave oscillations with authentic warehouse driving profiles:
+    // Straight aisle highways, decisive lane changes, discrete chicanes, and smooth docking alignments.
+    
+    function solveCubicSpline(xs, ys) {
+      const n = xs.length;
+      const h = new Float64Array(n - 1);
+      for (let i = 0; i < n - 1; i++) h[i] = xs[i + 1] - xs[i];
+
+      const alpha = new Float64Array(n);
+      for (let i = 1; i < n - 1; i++) {
+        alpha[i] = (3.0 / h[i]) * (ys[i + 1] - ys[i]) - (3.0 / h[i - 1]) * (ys[i] - ys[i - 1]);
+      }
+
+      const l = new Float64Array(n);
+      const mu = new Float64Array(n);
+      const z = new Float64Array(n);
+      l[0] = 1.0;
+      mu[0] = 0.0;
+      z[0] = 0.0;
+
+      for (let i = 1; i < n - 1; i++) {
+        l[i] = 2.0 * (xs[i + 1] - xs[i - 1]) - h[i - 1] * mu[i - 1];
+        mu[i] = h[i] / l[i];
+        z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
+      }
+
+      l[n - 1] = 1.0;
+      z[n - 1] = 0.0;
+
+      const c = new Float64Array(n);
+      const b = new Float64Array(n - 1);
+      const d = new Float64Array(n - 1);
+
+      c[n - 1] = 0.0;
+      for (let j = n - 2; j >= 0; j--) {
+        c[j] = z[j] - mu[j] * c[j + 1];
+        b[j] = (ys[j + 1] - ys[j]) / h[j] - h[j] * (c[j + 1] + 2.0 * c[j]) / 3.0;
+        d[j] = (c[j + 1] - c[j]) / (3.0 * h[j]);
+      }
+
+      return { xs, ys, b, c, d };
+    }
+
+    function evaluateSpline(spline, x) {
+      const xs = spline.xs;
+      const n = xs.length;
+      if (x <= xs[0]) {
+        return {
+          y: spline.ys[0],
+          dy: spline.b[0],
+          d2y: 2.0 * spline.c[0]
+        };
+      }
+      if (x >= xs[n - 1]) {
+        const lastIdx = n - 2;
+        const dx = xs[n - 1] - xs[lastIdx];
+        const lastY = spline.ys[lastIdx] + spline.b[lastIdx] * dx + spline.c[lastIdx] * dx * dx + spline.d[lastIdx] * dx * dx * dx;
+        return {
+          y: lastY,
+          dy: 0.0,
+          d2y: 0.0
+        };
+      }
+
+      let i = 0;
+      for (let k = 0; k < n - 1; k++) {
+        if (x >= xs[k] && x <= xs[k + 1]) {
+          i = k;
+          break;
+        }
+      }
+
+      const dx = x - xs[i];
+      const y = spline.ys[i] + spline.b[i] * dx + spline.c[i] * dx * dx + spline.d[i] * dx * dx * dx;
+      const dy = spline.b[i] + 2.0 * spline.c[i] * dx + 3.0 * spline.d[i] * dx * dx;
+      const d2y = 2.0 * spline.c[i] + 6.0 * spline.d[i] * dx;
+
+      return { y, dy, d2y };
+    }
+
     function generateRandomPath(customSeed) {
       currentSeed = customSeed || (Math.floor(Math.random() * 90000) + 10000);
       const rnd = createRNG(currentSeed);
 
-      // Generate 5 harmonic frequencies to ensure an unpredictable, non-repetitive path profile
-      // Mix of long sweep turns (wavelength ~25m to ~75m) and local chicanes
-      const harmonics = [];
-      const numHarmonics = 5;
-      for (let k = 0; k < numHarmonics; k++) {
-        const freq = 0.08 + rnd() * 0.24;
-        const amp = 0.3 + rnd() * 0.7;
-        const phase = rnd() * Math.PI * 2;
-        harmonics.push({ freq, amp, phase });
+      // Generate authentic non-periodic industrial waypoints
+      const waypointsX = [0.0, 13.0, 28.0, 44.0, 58.0, 71.0, 80.0];
+
+      // Procedural routing scenarios (Straight transit + chicanes + lane changes)
+      const scenario = Math.floor(rnd() * 3);
+      let y1, y2, y3, y4, y5, y6;
+
+      if (scenario === 0) {
+        // Scenario A: Straight center cruise -> Mid-corridor chicane -> North dock
+        y1 = (rnd() - 0.5) * 0.4;
+        y2 = (rnd() > 0.5 ? 1 : -1) * (1.2 + rnd() * 0.4);
+        y3 = y2 * 0.85;
+        y4 = -y2 * 0.75;
+        y5 = (rnd() - 0.5) * 0.8;
+        y6 = y5;
+      } else if (scenario === 1) {
+        // Scenario B: Rapid early lane shift -> Long stable rack transit -> Smooth return
+        y1 = (rnd() > 0.5 ? 1 : -1) * (1.3 + rnd() * 0.35);
+        y2 = y1 * 0.95;
+        y3 = (rnd() - 0.5) * 0.5;
+        y4 = (rnd() > 0.5 ? 1 : -1) * (1.2 + rnd() * 0.35);
+        y5 = y4 * 0.7;
+        y6 = y5;
+      } else {
+        // Scenario C: Dynamic asymmetric chicane navigation through multiple storage bays
+        y1 = (rnd() - 0.5) * 1.5;
+        y2 = -y1 * (0.8 + rnd() * 0.3);
+        y3 = (rnd() - 0.5) * 1.6;
+        y4 = -y3 * 0.85;
+        y5 = (rnd() - 0.5) * 1.0;
+        y6 = y5;
       }
 
-      // Compute y(0) to center trajectory origin cleanly at y = 0
-      let rawY0 = 0;
-      for (const h of harmonics) rawY0 += h.amp * Math.sin(h.phase);
+      // Clamp all waypoints safely within the wide warehouse corridor (|y| <= 1.8m)
+      const clampY = v => Math.max(-1.8, Math.min(1.8, v));
+      const waypointsY = [
+        0.0,
+        clampY(y1),
+        clampY(y2),
+        clampY(y3),
+        clampY(y4),
+        clampY(y5),
+        clampY(y6)
+      ];
 
-      // Measure max deviation along 0m to 80m to scale securely within warehouse aisles (|y| <= 1.95m)
-      let maxDev = 0.001;
-      for (let x = 0; x <= 80; x += 0.5) {
-        let val = 0;
-        for (const h of harmonics) val += h.amp * Math.sin(x * h.freq + h.phase);
-        const d = Math.abs(val - rawY0);
-        if (d > maxDev) maxDev = d;
-      }
-      const scale = 1.95 / Math.max(1.1, maxDev);
-
-      randomPathParams = {
-        seed: currentSeed,
-        harmonics,
-        rawY0,
-        scale
-      };
+      currentSpline = solveCubicSpline(waypointsX, waypointsY);
 
       // Randomize static obstacles adapted to this unique trajectory
       if (courseActive) {
@@ -425,50 +520,53 @@
       const types = ['pallet', 'drums', 'crates', 'barrier'];
       const labels = ['CARGO PALLET', 'HAZARD DRUMS', 'FALLEN CRATES', 'MAINTENANCE BARRIER'];
 
-      // Place 4 to 6 random obstacles along the 75m corridor
-      const numObs = 4 + Math.floor(rnd() * 3);
-      let curX = 11.0 + rnd() * 4.0;
+      // Place 4 obstacles spaced along the 75m corridor (minimum 12m spacing)
+      const obstacleXs = [15.0 + rnd() * 3.0, 31.0 + rnd() * 3.0, 48.0 + rnd() * 3.0, 64.0 + rnd() * 3.0];
 
-      for (let i = 0; i < numObs; i++) {
-        if (curX > 71.0) break;
+      obstacleXs.forEach((curX, i) => {
+        if (curX > 71.0) return;
 
-        // Evaluate nominal path at curX
-        let nominalY = 0;
-        for (const h of randomPathParams.harmonics) {
-          nominalY += h.amp * Math.sin(curX * h.freq + h.phase);
-        }
-        nominalY = (nominalY - randomPathParams.rawY0) * randomPathParams.scale;
+        // Nominal path coordinate at curX
+        const nominal = evaluateSpline(currentSpline, curX);
+        const nominalY = nominal.y;
 
-        // Place obstacle directly obstructing the lane (offset: -0.25m to +0.25m)
-        const lateralShift = (rnd() - 0.5) * 0.5;
+        // Place obstacle directly in the nominal path
+        const lateralShift = (rnd() - 0.5) * 0.25;
         let obsY = nominalY + lateralShift;
-        obsY = Math.max(-2.0, Math.min(2.0, obsY));
+        obsY = Math.max(-1.6, Math.min(1.6, obsY));
+
+        // Guaranteed dodge direction away from walls towards the wide corridor center
+        let dodgeDir = (obsY >= 0.0) ? -1 : 1;
+
+        // Desired apex clearance: guarantees at least 1.85m lateral offset from obstacle center
+        const targetDetourY = obsY + dodgeDir * 1.85;
+        const detourAmp = targetDetourY - nominalY;
 
         const tIdx = Math.floor(rnd() * types.length);
         obstacles.push({
           id: 'rnd_obs_' + i + '_' + Math.floor(rnd() * 10000),
           x: parseFloat(curX.toFixed(1)),
           y: parseFloat(obsY.toFixed(2)),
-          radius: 0.55 + rnd() * 0.1,
+          dodgeDir: dodgeDir,
+          detourAmp: parseFloat(detourAmp.toFixed(3)),
+          radius: 0.6,
           type: types[tIdx],
           label: labels[tIdx]
         });
+      });
 
-        curX += 9.0 + rnd() * 7.0; // Space next obstacle 9m - 16m away
-      }
-
-      if (scene && typeof renderAllStaticObstacles === 'function') {
-        renderAllStaticObstacles();
-      }
-      const badge = document.getElementById('obs-count-badge');
-      if (badge) badge.textContent = `${obstacles.length} Obstacles`;
+      isReplanned = (obstacles.length > 0);
+      renderAllStaticObstacles();
+      buildTrajectoryRibbons();
+      const obsCountBadge = document.getElementById('obs-count-badge');
+      if (obsCountBadge) obsCountBadge.textContent = `${obstacles.length} Obstacles`;
     }
 
     function randomizeForklifts(rndFn) {
       const rnd = rndFn || Math.random;
       const baseXs = [18.0, 35.0, 53.0, 69.0];
       forklifts.forEach((fl, idx) => {
-        fl.x = parseFloat((baseXs[idx] + (rnd() - 0.5) * 4.0).toFixed(1));
+        fl.x = parseFloat((baseXs[idx] + (rnd() - 0.5) * 3.0).toFixed(1));
         fl.y = parseFloat(((rnd() - 0.5) * 6.0).toFixed(2));
         const speed = 0.28 + rnd() * 0.25;
         const dir = rnd() > 0.5 ? 1 : -1;
@@ -485,13 +583,11 @@
     }
 
     function updateDestinationsToPath() {
+      if (!currentSpline) return;
       for (const [id, d] of Object.entries(destinations)) {
-        let destY = 0;
-        for (const h of randomPathParams.harmonics) {
-          destY += h.amp * Math.sin(d.x * h.freq + h.phase);
-        }
-        d.y = parseFloat(((destY - randomPathParams.rawY0) * randomPathParams.scale).toFixed(2));
-        d.y = Math.max(-2.0, Math.min(2.0, d.y));
+        const p = evaluateSpline(currentSpline, d.x);
+        d.y = parseFloat(p.y.toFixed(2));
+        d.y = Math.max(-2.2, Math.min(2.2, d.y));
 
         if (scene && bayMarkers && bayMarkers[id]) {
           bayMarkers[id].position.set(d.x, 0, -d.y);
@@ -501,39 +597,26 @@
 
     // Mathematical Reference Trajectory & Multi-Obstacle Replanning
     function getReferencePose(x, replanActive) {
-      if (!randomPathParams) {
+      if (!currentSpline) {
         generateRandomPath();
       }
 
-      let yRef = 0;
-      let dydx = 0;
-      let d2ydx2 = 0;
+      // 1. Evaluate baseline procedural spline
+      const base = evaluateSpline(currentSpline, x);
+      let yRef = base.y;
+      let dydx = base.dy;
+      let d2ydx2 = base.d2y;
 
-      for (const h of randomPathParams.harmonics) {
-        const angle = x * h.freq + h.phase;
-        yRef += h.amp * Math.sin(angle);
-        dydx += h.amp * h.freq * Math.cos(angle);
-        d2ydx2 += -h.amp * h.freq * h.freq * Math.sin(angle);
-      }
-
-      yRef = (yRef - randomPathParams.rawY0) * randomPathParams.scale;
-      dydx = dydx * randomPathParams.scale;
-      d2ydx2 = d2ydx2 * randomPathParams.scale;
-
-      // Multi-Obstacle Gaussian Bypass Superposition
+      // 2. Multi-Obstacle Smooth Evasive Bypass (Guaranteed 1.85m clearance)
       if (replanActive && obstacles.length > 0) {
         for (const obs of obstacles) {
           const dx = x - obs.x;
-          if (Math.abs(dx) < 6.5) {
-            // Evasive direction: dodge towards whichever side has more clearance
-            let side = (obs.y >= yRef) ? -1 : 1;
-            if (side === -1 && (yRef - 1.8 < -2.1)) side = 1;
-            if (side === 1 && (yRef + 1.8 > 2.1)) side = -1;
+          // Smooth 16m wide evasion envelope (spread sigma^2 = 26.0)
+          if (Math.abs(dx) < 8.0) {
+            const detour = obs.detourAmp * Math.exp(-Math.pow(dx, 2) / 26.0);
+            const dDetour = -detour * (2.0 * dx / 26.0);
+            const d2Detour = detour * (4.0 * dx * dx / 676.0 - 2.0 / 26.0);
 
-            const amp = 1.95 * side;
-            const detour = amp * Math.exp(-Math.pow(dx, 2) / 8.5);
-            const dDetour = -detour * (2.0 * dx / 8.5);
-            const d2Detour = detour * (4.0 * dx * dx / 72.25 - 2.0 / 8.5);
             yRef += detour;
             dydx += dDetour;
             d2ydx2 += d2Detour;
@@ -541,7 +624,7 @@
         }
       }
 
-      yRef = Math.max(-2.2, Math.min(2.2, yRef));
+      yRef = Math.max(-2.8, Math.min(2.8, yRef));
       const yawRef = Math.atan2(dydx, 1.0);
       const curvature = d2ydx2 / Math.pow(1.0 + dydx * dydx, 1.5);
       return { yRef, yawRef, curvature };
@@ -553,11 +636,11 @@
     // --- 3. Three.js 3D Scene Setup ---
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x182234); // Clean modern industrial warehouse atmosphere (Zero black void)
+    scene.background = new THREE.Color(0xdbeafe); // Clean, bright daylight atmosphere - Zero dark/black surfaces
     scene.fog = null; // 100% infinite crisp clarity
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 300);
-    camera.position.set(-6.2, 3.2, 0);
+    camera.position.set(-5.8, 3.6, 0);
     camera.lookAt(4.5, 0.75, 0);
     let camLookTarget = new THREE.Vector3(4.5, 0.75, 0);
 
@@ -579,10 +662,10 @@
     }
 
     // --- 4. 3D Lighting (Bright, High-Visibility Industrial Warehouse) ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.45);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.55);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
     dirLight.position.set(45, 45, 15);
     scene.add(dirLight);
 
@@ -604,9 +687,9 @@
     // --- 5. Expansive Industrial Warehouse Floor (140m x 44m) & Architectural Walls ---
     const floorGeo = new THREE.PlaneGeometry(140, 44);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x222c3c,
-      roughness: 0.38,
-      metalness: 0.25
+      color: 0x475569, // Clean, high-visibility light industrial slate floor
+      roughness: 0.35,
+      metalness: 0.2
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.position.set(42, 0, 0);
@@ -614,7 +697,7 @@
     scene.add(floor);
 
     // High-contrast industrial floor grid
-    const gridHelper = new THREE.GridHelper(140, 70, 0x475569, 0x334155);
+    const gridHelper = new THREE.GridHelper(140, 70, 0x64748b, 0x475569);
     gridHelper.position.set(42, 0.01, 0);
     scene.add(gridHelper);
 
@@ -630,9 +713,9 @@
     createSafetyLine(42, 3.8, 120);
     createSafetyLine(42, -3.8, 120);
 
-    // Architectural Perimeter Warehouse Walls (Enclosing facility - Eliminating the black wall!)
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.1 });
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+    // Architectural Perimeter Warehouse Walls (Bright, modern off-white and blue accents)
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5, metalness: 0.1 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
 
     // A. Far Terminal Dispatch Bay Wall at x = 95m (End of Warehouse)
     const farWallGroup = new THREE.Group();
@@ -644,12 +727,12 @@
     [-11, 0, 11].forEach((dockZ) => {
       const door = new THREE.Mesh(
         new THREE.BoxGeometry(0.3, 7.0, 7.0),
-        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.5 })
+        new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4, metalness: 0.3 })
       );
       door.position.set(94.7, 3.5, dockZ);
       farWallGroup.add(door);
 
-      // Safety chevron yellow/dark border frame
+      // Safety chevron yellow border frame
       const frame = new THREE.Mesh(
         new THREE.BoxGeometry(0.4, 7.4, 7.6),
         new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 })
@@ -669,10 +752,10 @@
       farWallGroup.add(dockBeacon);
     });
 
-    // Illuminated Terminal Gantry Signboard
+    // Illuminated Terminal Gantry Signboard (Vibrant Logistics Blue)
     const signBoard = new THREE.Mesh(
       new THREE.BoxGeometry(0.2, 1.2, 24),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 })
+      new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.3 })
     );
     signBoard.position.set(94.4, 9.8, 0);
     farWallGroup.add(signBoard);
@@ -1167,10 +1250,33 @@
         });
       }
 
-      // Smooth deceleration near destination
+      // Dynamic LiDAR Cross-Traffic Detection & Yielding for Crossing Forklifts
+      let forkliftYield = false;
+      if (forkliftsActive) {
+        for (const fl of forklifts) {
+          const dx = fl.x - veh.x;
+          const dy = Math.abs(fl.y - veh.y);
+          // If forklift is in crossing corridor ahead (0.4m to 5.2m) and in the path zone (dy < 2.2m):
+          if (dx > 0.4 && dx < 5.2 && dy < 2.2) {
+            forkliftYield = true;
+            break;
+          }
+        }
+      }
+
+      // Smooth deceleration near destination or yielding for crossing forklifts
       let currVRef = vNominal;
-      if (distToGoal < 4.0) {
+      if (forkliftYield) {
+        currVRef = 0.0;
+        document.getElementById('hud-status').textContent = 'YIELDING: CROSS-TRAFFIC';
+        document.getElementById('hud-status').className = 'font-bold text-amber-400 text-sm animate-pulse';
+      } else if (distToGoal < 4.0) {
         currVRef = Math.max(0.25, (distToGoal / 4.0) * vNominal);
+        document.getElementById('hud-status').textContent = 'RUNNING';
+        document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
+      } else {
+        document.getElementById('hud-status').textContent = 'RUNNING';
+        document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
       }
 
       const ref = getReferencePose(veh.x, isReplanned);
@@ -1329,25 +1435,25 @@
 
       // Ultra-Smooth Steadicam Camera Modes (High-Rated Cinema Quality)
       if (activeCamera === 'chase') {
-        const camDist = 6.2;
-        const camHeight = 3.2;
+        const camDist = 5.8;
+        const camHeight = 3.6; // High elevation ensures camera never intersects crates or obstacles
 
         // Smoothly damped heading prevents snappy camera whipping
         const smoothYaw = veh.yaw * 0.35;
         const targetCamX = veh.x - camDist * Math.cos(smoothYaw);
         const rawCamZ = -veh.y + camDist * Math.sin(smoothYaw);
-        const clampedCamZ = Math.max(-2.6, Math.min(2.6, rawCamZ)); // Strictly held in open corridor center
+        const clampedCamZ = Math.max(-2.5, Math.min(2.5, rawCamZ)); // Strictly held in open corridor center
 
-        camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, clampedCamZ), 0.09);
+        camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, clampedCamZ), 0.1);
 
         // Smooth focal point ahead of vehicle absorbs steering jitters
         const desiredLookAt = new THREE.Vector3(
-          veh.x + 4.5 * Math.cos(smoothYaw),
-          0.75,
-          -veh.y - 4.5 * Math.sin(smoothYaw)
+          veh.x + 3.8 * Math.cos(smoothYaw),
+          0.70,
+          -veh.y - 3.8 * Math.sin(smoothYaw)
         );
         if (!camLookTarget) camLookTarget = desiredLookAt.clone();
-        else camLookTarget.lerp(desiredLookAt, 0.09);
+        else camLookTarget.lerp(desiredLookAt, 0.1);
 
         camera.lookAt(camLookTarget);
       } else if (activeCamera === 'top') {
