@@ -8,7 +8,7 @@
       document.title = 'JS_ERR: ' + e.message + ' at ' + e.lineno + ':' + e.colno;
     });
   </script>
-  <title>SteadyPath AGV - Extended 75m Multi-Obstacle 3D Warehouse Simulation</title>
+  <title>SteadyPath AGV - Smart Logistics Warehouse 3D Simulation</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <!-- Three.js 3D Engine & OrbitControls -->
   <script src="three.min.js"></script>
@@ -24,15 +24,17 @@
     }
   </script>
   <style>
-    body { margin: 0; overflow: hidden; user-select: none; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; overflow: hidden; user-select: none; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
     .glass-panel {
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(51, 65, 85, 0.65);
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(51, 65, 85, 0.7);
     }
     .hud-gauge-bar { transition: width 0.08s ease-out; }
+    .collapsed-sidebar { transform: translateX(-105%); transition: transform 0.25s ease-in-out; }
+    .expanded-sidebar { transform: translateX(0); transition: transform 0.25s ease-in-out; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100">
@@ -48,11 +50,11 @@
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
-            <span class="text-amber-400">SteadyPath</span> 3D Warehouse Simulation
+            <span class="text-amber-400">SteadyPath</span> Smart Logistics 3D Simulation
           </h1>
-          <span id="route-type-badge" class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🎲 Procedural Random Route</span>
+          <span id="route-type-badge" class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🎲 Procedural Spline Slalom</span>
         </div>
-        <p class="text-[11px] text-slate-400">Dynamic Unpredictable Curves &bull; 4 Crossing Forklifts &bull; Real-Time Replanning</p>
+        <p class="text-[11px] text-slate-400">Multi-Obstacle Slalom &bull; Electric Forklifts & AMR Pods &bull; Dynamic Yielding</p>
       </div>
     </div>
 
@@ -63,7 +65,7 @@
         <span id="hud-time" class="font-bold text-white text-sm">0.00s</span>
       </div>
       <div class="flex items-center gap-1.5 border-r border-slate-700 pr-3">
-        <span class="text-slate-400">DISTANCE:</span>
+        <span class="text-slate-400">DIST:</span>
         <span id="hud-dist" class="font-bold text-amber-400 text-sm">0.0m / 75.0m</span>
       </div>
       <div class="flex items-center gap-1.5 border-r border-slate-700 pr-3">
@@ -76,19 +78,25 @@
       </div>
     </div>
 
-    <!-- Camera Mode Switcher -->
+    <!-- Camera Mode Switcher & Zen Toggle -->
     <div class="glass-panel rounded-xl p-1 shadow-xl flex items-center gap-1 text-xs font-medium pointer-events-auto">
       <span class="text-[10px] text-slate-400 px-2 font-mono uppercase">Camera:</span>
       <button class="cam-btn px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold transition-all" data-cam="chase">🎥 Chase</button>
-      <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="orbit">🌐 Orbit 3D</button>
+      <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="side">🚀 Side Track</button>
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="top">📐 Overhead</button>
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="bumper">🚗 Bumper</button>
+      <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="orbit">🌐 Orbit 3D</button>
+      <div class="h-4 w-px bg-slate-700 mx-1"></div>
+      <button id="btn-toggle-ui" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 transition-all" title="Toggle Clean Cinema View">
+        <span id="ui-toggle-icon">👁️</span> <span id="ui-toggle-text">Cinema</span>
+      </button>
+    </div>
   </header>
 
   <!-- TOP RIGHT VISUAL LEGEND -->
-  <div class="absolute top-16 right-3 z-10 glass-panel rounded-xl p-3 shadow-2xl text-xs space-y-1.5 w-60 pointer-events-auto border border-slate-700/80">
+  <div id="panel-legend" class="absolute top-16 right-3 z-10 glass-panel rounded-xl p-3 shadow-2xl text-xs space-y-1.5 w-64 pointer-events-auto border border-slate-700/80 transition-opacity duration-200">
     <div class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider flex items-center justify-between border-b border-slate-700/70 pb-1.5">
-      <span>3D Visual Legend</span>
+      <span>Smart Facility Legend</span>
       <span class="text-blue-400 font-mono text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20">HIGH CLARITY</span>
     </div>
     <div class="flex items-center gap-2.5 text-[11px]">
@@ -100,20 +108,20 @@
       <span class="text-slate-200 font-medium">MPC 14-Step Preview</span>
     </div>
     <div class="flex items-center gap-2.5 text-[11px]">
-      <div class="w-4 h-1.5 rounded bg-blue-500"></div>
-      <span class="text-slate-200 font-medium">Driven Trail History</span>
-    </div>
-    <div class="flex items-center gap-2.5 text-[11px]">
       <div class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]"></div>
-      <span class="text-slate-200 font-medium">Obstacle Hazard Beacon</span>
+      <span class="text-slate-200 font-medium">Industrial Obstacles (Slalom)</span>
     </div>
     <div class="flex items-center gap-2.5 text-[11px]">
-      <div class="w-3 h-2 rounded bg-yellow-400"></div>
-      <span class="text-slate-200 font-medium">Crossing Forklift Traffic</span>
+      <div class="w-3 h-2 rounded bg-orange-500"></div>
+      <span class="text-slate-200 font-medium">Electric Forklifts (BlueSpot)</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-3 h-2 rounded bg-cyan-500"></div>
+      <span class="text-slate-200 font-medium">Smart AMR Logistics Pods</span>
     </div>
     <div class="flex items-center gap-2.5 text-[11px]">
       <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-      <span class="text-slate-200 font-medium">Docking Platform Gantry</span>
+      <span class="text-slate-200 font-medium">Bays & Traffic Gantries</span>
     </div>
   </div>
 
@@ -123,8 +131,8 @@
     <span id="event-toast-msg">DYNAMIC REPLAN TRIGGERED</span>
   </div>
 
-  <!-- INTERACTIVE CONTROLS TOOLBAR -->
-  <div class="absolute top-20 left-3 z-10 glass-panel rounded-xl p-3 shadow-xl space-y-3 w-72 pointer-events-auto">
+  <!-- INTERACTIVE CONTROLS TOOLBAR (LEFT) -->
+  <div id="sidebar-controls" class="expanded-sidebar absolute top-20 left-3 z-10 glass-panel rounded-xl p-3 shadow-xl space-y-3 w-76 pointer-events-auto max-h-[calc(100vh-6rem)] overflow-y-auto">
     <!-- Playback & Speed -->
     <div class="flex items-center gap-2">
       <button id="btn-play" class="flex-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow">
@@ -149,7 +157,7 @@
         <span id="path-seed-label" class="text-[10px] font-mono text-emerald-300 font-bold">Seed #48291</span>
       </div>
       <button id="btn-random-path" class="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95">
-        <span>🎲</span> <span>Generate New Random Path</span>
+        <span>🎲</span> <span>Generate New Random Route</span>
       </button>
       <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800 text-[11px]">
         <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white select-none">
@@ -162,11 +170,36 @@
       </div>
     </div>
 
-    <!-- Proof 3: Controller Selection -->
+    <!-- Obstacle Controls & Density Selector -->
+    <div>
+      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
+        <span>Obstacle Density (Proof 2)</span>
+        <span id="obs-count-badge" class="text-amber-400 font-mono text-[10px]">8 Obstacles</span>
+      </div>
+      <!-- Density selector -->
+      <div class="grid grid-cols-3 gap-1 mb-2 text-[11px] font-mono">
+        <button class="density-btn py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white" data-density="4">4 Obs</button>
+        <button class="density-btn py-1 rounded border border-amber-500/50 bg-amber-600/30 text-amber-300 font-bold" data-density="8">8 Obs (Std)</button>
+        <button class="density-btn py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white" data-density="12">12 Obs</button>
+      </div>
+      <div class="space-y-1.5">
+        <button id="btn-spawn-ahead" class="w-full py-1.5 px-2 rounded-lg bg-amber-600/25 hover:bg-amber-600/35 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+          <span>🚧</span> <span>Spawn Blockage Ahead</span>
+        </button>
+        <button id="btn-toggle-forklifts" class="w-full py-1.5 px-2 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+          <span>🚜</span> <span id="btn-forklifts-label">Crossing Traffic: ON (4 Units)</span>
+        </button>
+        <button id="btn-toggle-course" class="w-full py-1.5 px-2 rounded-lg bg-rose-600/25 hover:bg-rose-600/35 text-rose-300 border border-rose-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+          <span>⚠️</span> <span id="btn-course-label">Obstacle Slalom: ACTIVE</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Controller Selection -->
     <div>
       <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
         <span>Controller Mode (Proof 3)</span>
-        <span id="ctrl-perf-label" class="text-emerald-400 font-mono text-[10px]">97% Accuracy</span>
+        <span id="ctrl-perf-label" class="text-emerald-400 font-mono text-[10px]">98% Accuracy</span>
       </div>
       <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
         <button id="btn-ctrl-mpc" class="py-1 rounded font-bold transition-all bg-blue-600 text-white shadow">SteadyPath MPC</button>
@@ -174,10 +207,10 @@
       </div>
     </div>
 
-    <!-- Proof 1: Extended Destinations (4 Bays up to 75m) -->
+    <!-- Extended Destinations (4 Bays up to 75m) -->
     <div>
       <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
-        <span>Extended Route Destination (Proof 1)</span>
+        <span>Destination Bay (Proof 1)</span>
         <span class="text-amber-400 font-mono text-[10px]">Up to 75m</span>
       </div>
       <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
@@ -187,29 +220,10 @@
         <button class="dest-btn py-1 rounded border border-blue-500/50 bg-blue-600/30 text-blue-300 font-bold" data-dest="4">Bay 4 (75m)</button>
       </div>
     </div>
-
-    <!-- Proof 2: Obstacles & Evasive Multi-Replan -->
-    <div>
-      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
-        <span>Obstacle Controls (Proof 2)</span>
-        <span id="obs-count-badge" class="text-amber-400 font-mono text-[10px]">4 Obstacles</span>
-      </div>
-      <div class="space-y-1.5">
-        <button id="btn-spawn-ahead" class="w-full py-1.5 px-2 rounded-lg bg-amber-600/25 hover:bg-amber-600/35 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
-          <span>🚧</span> <span>Spawn Blockage Ahead</span>
-        </button>
-        <button id="btn-toggle-forklifts" class="w-full py-1.5 px-2 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
-          <span>🚜</span> <span id="btn-forklifts-label">4 Crossing Forklifts: ON</span>
-        </button>
-        <button id="btn-toggle-course" class="w-full py-1.5 px-2 rounded-lg bg-rose-600/25 hover:bg-rose-600/35 text-rose-300 border border-rose-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
-          <span>⚠️</span> <span id="btn-course-label">Obstacle Course: ACTIVE</span>
-        </button>
-      </div>
-    </div>
   </div>
 
   <!-- BOTTOM TELEMETRY HUD GAUGES -->
-  <div class="absolute bottom-3 left-3 right-3 z-10 grid grid-cols-2 md:grid-cols-5 gap-3 pointer-events-none">
+  <div id="panel-gauges" class="absolute bottom-3 left-3 right-3 z-10 grid grid-cols-2 md:grid-cols-5 gap-3 pointer-events-none transition-opacity duration-200">
     <!-- Gauge 1: Lateral Error -->
     <div class="glass-panel rounded-xl p-3 shadow-xl pointer-events-auto">
       <div class="text-[10px] text-slate-400 flex justify-between font-bold uppercase">
@@ -233,76 +247,82 @@
         <span>Heading Error $e_{\psi}$</span>
         <span id="badge-yaw" class="text-emerald-400 font-mono font-bold">ALIGNED</span>
       </div>
-      <div class="text-xl font-extrabold font-mono text-white mt-1" id="hud-val-yaw">0.00°</div>
+      <div class="text-xl font-extrabold font-mono text-white mt-1" id="hud-val-yaw">0.0°</div>
       <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-700">
         <div id="bar-yaw" class="bg-blue-400 h-full w-0 hud-gauge-bar"></div>
       </div>
       <div class="text-[9px] text-slate-400 mt-1 flex justify-between font-mono">
         <span>0°</span>
-        <span>Target: &lt;2°</span>
+        <span>Max: ±5°</span>
         <span>5°</span>
       </div>
     </div>
 
-    <!-- Gauge 3: Steering Angle -->
+    <!-- Gauge 3: Steering Angle delta -->
     <div class="glass-panel rounded-xl p-3 shadow-xl pointer-events-auto">
       <div class="text-[10px] text-slate-400 flex justify-between font-bold uppercase">
-        <span>Front Steering $\delta$</span>
-        <span id="hud-val-steer-deg" class="text-amber-400 font-mono font-bold">0.0°</span>
+        <span>Steer Angle $\delta$</span>
+        <span id="hud-val-steer-rad" class="text-slate-400 font-mono">0.00 rad</span>
       </div>
-      <div class="text-xl font-extrabold font-mono text-amber-300 mt-1" id="hud-val-steer-rad">0.000 rad</div>
+      <div class="text-xl font-extrabold font-mono text-white mt-1" id="hud-val-steer-deg">0.0°</div>
       <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-700 relative">
-        <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-slate-500"></div>
-        <div id="bar-steer" class="bg-amber-400 h-full w-1/2 ml-auto hud-gauge-bar"></div>
+        <div id="bar-steer" class="bg-amber-400 h-full w-0 hud-gauge-bar absolute"></div>
       </div>
       <div class="text-[9px] text-slate-400 mt-1 flex justify-between font-mono">
-        <span>-30°</span>
+        <span>-30° (Left)</span>
         <span>0°</span>
-        <span>+30°</span>
+        <span>+30° (Right)</span>
       </div>
     </div>
 
-    <!-- Gauge 4: Speed & Solver Latency -->
-    <div class="glass-panel rounded-xl p-3 shadow-xl pointer-events-auto">
-      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1 flex justify-between">
-        <span>Velocity & Solver</span>
-        <span class="text-purple-400 font-mono">50 Hz</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2 mt-1">
-        <div>
-          <div class="text-[9px] text-slate-400">SPEED $v$</div>
-          <div class="text-lg font-extrabold font-mono text-blue-400" id="hud-val-speed">0.00 m/s</div>
-        </div>
-        <div>
-          <div class="text-[9px] text-slate-400">MPC LATENCY</div>
-          <div class="text-lg font-extrabold font-mono text-purple-400" id="hud-val-solver">3.8 ms</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Gauge 5: Safety Clearance -->
+    <!-- Gauge 4: Obstacle Clearance -->
     <div class="glass-panel rounded-xl p-3 shadow-xl pointer-events-auto">
       <div class="text-[10px] text-slate-400 flex justify-between font-bold uppercase">
-        <span>Clearance $d_{min}$</span>
+        <span>Min Hazard Clearance</span>
         <span id="badge-clear" class="text-emerald-400 font-mono font-bold">SAFE</span>
       </div>
-      <div class="text-xl font-extrabold font-mono text-white mt-1" id="hud-val-clear">&gt; 5.00 m</div>
-      <div class="text-[10px] text-slate-400 mt-1 flex justify-between">
-        <span>Buffer: 0.50m</span>
-        <span class="text-emerald-400 font-bold font-mono" id="collision-counter">0 Collisions</span>
+      <div class="text-xl font-extrabold font-mono text-emerald-400 mt-1" id="hud-val-clear">&gt; 5.00 m</div>
+      <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-700">
+        <div id="bar-clear" class="bg-emerald-400 h-full w-full hud-gauge-bar"></div>
+      </div>
+      <div class="text-[9px] text-slate-400 mt-1 flex justify-between font-mono">
+        <span>Crit &lt;0.8m</span>
+        <span>Warn &lt;1.8m</span>
+        <span>Safe &gt;2.5m</span>
+      </div>
+    </div>
+
+    <!-- Gauge 5: AGV Kinematics & Solver -->
+    <div class="glass-panel rounded-xl p-3 shadow-xl pointer-events-auto hidden md:block">
+      <div class="text-[10px] text-slate-400 flex justify-between font-bold uppercase">
+        <span>Velocity & Solver</span>
+        <span id="badge-solver" class="text-emerald-400 font-mono font-bold">20 Hz</span>
+      </div>
+      <div class="flex items-baseline justify-between mt-1">
+        <div class="text-xl font-extrabold font-mono text-white" id="hud-val-speed">1.60 m/s</div>
+        <div class="text-xs font-mono text-slate-400" id="hud-val-solver">1.2 ms</div>
+      </div>
+      <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden border border-slate-700">
+        <div id="bar-speed" class="bg-cyan-400 h-full w-[80%] hud-gauge-bar"></div>
+      </div>
+      <div class="text-[9px] text-slate-400 mt-1 flex justify-between font-mono">
+        <span>0 m/s</span>
+        <span>Nominal: 1.6 m/s</span>
+        <span>2.0 m/s</span>
       </div>
     </div>
   </div>
 
-  <!-- 3D WEBGL ENGINE & PHYSICS SCRIPT -->
+  <!-- SCRIPT -->
   <script>
     // --- 1. Simulation Parameters & State ---
     let isRunning = true;
     let simSpeed = 1;
     let controller = 'MPC'; // 'MPC' or 'STANLEY'
     let destId = 4; // Default to Longest Route: Bay 4 (75m!)
-    let activeCamera = 'chase'; // 'chase', 'orbit', 'top', 'bumper'
+    let activeCamera = 'chase'; // 'chase', 'side', 'orbit', 'top', 'bumper'
     let autoRandomizeOnReset = true;
+    let isUIVisible = true;
 
     let simTime = 0.0;
     let simStep = 0;
@@ -335,19 +355,22 @@
 
     // Obstacles & 3D Containers
     let courseActive = true;
+    let obstacleDensity = 8; // Default 8 realistic obstacles
     let obstacles = [];
     const staticObstacleMeshes = [];
 
-    // Forklifts & 3D Containers
+    // Crossing Traffic (Realistic Forklifts & AMR Pods)
     let forkliftsActive = true;
     let forklifts = [
-      { id: 1, x: 18.0, y: -2.5, vy: 0.35, radius: 0.55, min_y: -3.4, max_y: 3.4 },
-      { id: 2, x: 35.0, y: 2.5, vy: -0.40, radius: 0.55, min_y: -3.4, max_y: 3.4 },
-      { id: 3, x: 53.0, y: -2.0, vy: 0.32, radius: 0.55, min_y: -3.4, max_y: 3.4 },
-      { id: 4, x: 69.0, y: 2.8, vy: -0.38, radius: 0.55, min_y: -3.4, max_y: 3.4 }
+      { id: 1, type: 'forklift', name: 'Electric Forklift 01', x: 18.0, y: -2.5, vy: 0.35, radius: 0.75, min_y: -3.3, max_y: 3.3 },
+      { id: 2, type: 'amr', name: 'Smart AMR Pod 01', x: 35.0, y: 2.5, vy: -0.42, radius: 0.65, min_y: -3.3, max_y: 3.3 },
+      { id: 3, type: 'forklift', name: 'Electric Forklift 02', x: 53.0, y: -2.0, vy: 0.38, radius: 0.75, min_y: -3.3, max_y: 3.3 },
+      { id: 4, type: 'amr', name: 'Smart AMR Pod 02', x: 69.0, y: 2.8, vy: -0.36, radius: 0.65, min_y: -3.3, max_y: 3.3 }
     ];
     const forkliftMeshes = [];
+    const crossingGantries = [];
     const bayMarkers = {};
+
     let scene = null;
     let camera = null;
     let renderer = null;
@@ -367,77 +390,80 @@
     }
 
     // --- 2. Procedural Authentic Industrial Warehouse Path Generation (Natural Cubic Splines) ---
-    // Replaces repetitive sine-wave oscillations with authentic warehouse driving profiles:
-    // Straight aisle highways, decisive lane changes, discrete chicanes, and smooth docking alignments.
-    
     function solveCubicSpline(xs, ys) {
-      const n = xs.length;
-      const h = new Float64Array(n - 1);
-      for (let i = 0; i < n - 1; i++) h[i] = xs[i + 1] - xs[i];
+      const n = xs.length - 1;
+      const h = new Float64Array(n);
+      for (let i = 0; i < n; i++) h[i] = xs[i + 1] - xs[i];
 
       const alpha = new Float64Array(n);
-      for (let i = 1; i < n - 1; i++) {
+      for (let i = 1; i < n; i++) {
         alpha[i] = (3.0 / h[i]) * (ys[i + 1] - ys[i]) - (3.0 / h[i - 1]) * (ys[i] - ys[i - 1]);
       }
 
-      const l = new Float64Array(n);
-      const mu = new Float64Array(n);
-      const z = new Float64Array(n);
+      const l = new Float64Array(n + 1);
+      const mu = new Float64Array(n + 1);
+      const z = new Float64Array(n + 1);
       l[0] = 1.0;
       mu[0] = 0.0;
       z[0] = 0.0;
 
-      for (let i = 1; i < n - 1; i++) {
+      for (let i = 1; i < n; i++) {
         l[i] = 2.0 * (xs[i + 1] - xs[i - 1]) - h[i - 1] * mu[i - 1];
         mu[i] = h[i] / l[i];
         z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
       }
 
-      l[n - 1] = 1.0;
-      z[n - 1] = 0.0;
+      l[n] = 1.0;
+      z[n] = 0.0;
 
-      const c = new Float64Array(n);
-      const b = new Float64Array(n - 1);
-      const d = new Float64Array(n - 1);
+      const c = new Float64Array(n + 1);
+      const b = new Float64Array(n);
+      const d = new Float64Array(n);
+      c[n] = 0.0;
 
-      c[n - 1] = 0.0;
-      for (let j = n - 2; j >= 0; j--) {
+      for (let j = n - 1; j >= 0; j--) {
         c[j] = z[j] - mu[j] * c[j + 1];
-        b[j] = (ys[j + 1] - ys[j]) / h[j] - h[j] * (c[j + 1] + 2.0 * c[j]) / 3.0;
+        b[j] = (ys[j + 1] - ys[j]) / h[j] - (h[j] * (c[j + 1] + 2.0 * c[j])) / 3.0;
         d[j] = (c[j + 1] - c[j]) / (3.0 * h[j]);
       }
 
-      return { xs, ys, b, c, d };
+      return { xs, ys, b, c, d, n };
     }
 
     function evaluateSpline(spline, x) {
       const xs = spline.xs;
-      const n = xs.length;
       if (x <= xs[0]) {
+        const dx = x - xs[0];
         return {
           y: spline.ys[0],
           dy: spline.b[0],
           d2y: 2.0 * spline.c[0]
         };
       }
-      if (x >= xs[n - 1]) {
-        const lastIdx = n - 2;
-        const dx = xs[n - 1] - xs[lastIdx];
-        const lastY = spline.ys[lastIdx] + spline.b[lastIdx] * dx + spline.c[lastIdx] * dx * dx + spline.d[lastIdx] * dx * dx * dx;
+      if (x >= xs[spline.n]) {
+        const lastIdx = spline.n - 1;
+        const dx = x - xs[spline.n];
+        const lastY = spline.ys[lastIdx] + spline.b[lastIdx] * (xs[spline.n] - xs[lastIdx]) + spline.c[lastIdx] * Math.pow(xs[spline.n] - xs[lastIdx], 2) + spline.d[lastIdx] * Math.pow(xs[spline.n] - xs[lastIdx], 3);
+        const lastDy = spline.b[lastIdx] + 2.0 * spline.c[lastIdx] * (xs[spline.n] - xs[lastIdx]) + 3.0 * spline.d[lastIdx] * Math.pow(xs[spline.n] - xs[lastIdx], 2);
         return {
           y: lastY,
-          dy: 0.0,
+          dy: lastDy,
           d2y: 0.0
         };
       }
 
       let i = 0;
-      for (let k = 0; k < n - 1; k++) {
-        if (x >= xs[k] && x <= xs[k + 1]) {
-          i = k;
-          break;
+      let low = 0, high = spline.n;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (xs[mid] <= x) {
+          i = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
         }
       }
+      if (i >= spline.n) i = spline.n - 1;
 
       const dx = x - xs[i];
       const y = spline.ys[i] + spline.b[i] * dx + spline.c[i] * dx * dx + spline.d[i] * dx * dx * dx;
@@ -447,69 +473,73 @@
       return { y, dy, d2y };
     }
 
-    function generateRandomPath(customSeed) {
-      currentSeed = customSeed || (Math.floor(Math.random() * 90000) + 10000);
+    function generateRandomPath(newSeed) {
+      if (newSeed !== undefined) {
+        currentSeed = newSeed;
+      } else {
+        currentSeed = Math.floor(Math.random() * 89999) + 10000;
+      }
       const rnd = createRNG(currentSeed);
 
-      // Generate authentic non-periodic industrial waypoints
-      const waypointsX = [0.0, 13.0, 28.0, 44.0, 58.0, 71.0, 80.0];
-
-      // Procedural routing scenarios (Straight transit + chicanes + lane changes)
       const scenario = Math.floor(rnd() * 3);
-      let y1, y2, y3, y4, y5, y6;
+      let waypointsX = [];
+      let waypointsY = [];
 
       if (scenario === 0) {
-        // Scenario A: Straight center cruise -> Mid-corridor chicane -> North dock
-        y1 = (rnd() - 0.5) * 0.4;
-        y2 = (rnd() > 0.5 ? 1 : -1) * (1.2 + rnd() * 0.4);
-        y3 = y2 * 0.85;
-        y4 = -y2 * 0.75;
-        y5 = (rnd() - 0.5) * 0.8;
-        y6 = y5;
+        // Scenario A: Central Corridor with S-Curve Chicanes
+        waypointsX = [0.0, 10.0, 20.0, 32.0, 44.0, 56.0, 68.0, 80.0];
+        const s1 = (rnd() > 0.5 ? 1.0 : -1.0) * (0.6 + rnd() * 0.7);
+        const s2 = -s1 * (0.8 + rnd() * 0.4);
+        waypointsY = [
+          0.0,
+          s1 * 0.4,
+          s1,
+          0.0,
+          s2,
+          s2 * 0.5,
+          0.0,
+          0.0
+        ];
       } else if (scenario === 1) {
-        // Scenario B: Rapid early lane shift -> Long stable rack transit -> Smooth return
-        y1 = (rnd() > 0.5 ? 1 : -1) * (1.3 + rnd() * 0.35);
-        y2 = y1 * 0.95;
-        y3 = (rnd() - 0.5) * 0.5;
-        y4 = (rnd() > 0.5 ? 1 : -1) * (1.2 + rnd() * 0.35);
-        y5 = y4 * 0.7;
-        y6 = y5;
+        // Scenario B: Rapid early lane shift -> Long stable transit -> Smooth return
+        waypointsX = [0.0, 8.0, 18.0, 30.0, 45.0, 60.0, 72.0, 80.0];
+        const laneOffset = (rnd() > 0.5 ? 1.0 : -1.0) * (0.9 + rnd() * 0.7);
+        waypointsY = [
+          0.0,
+          laneOffset * 0.35,
+          laneOffset,
+          laneOffset,
+          laneOffset * 0.75,
+          0.0,
+          0.0,
+          0.0
+        ];
       } else {
-        // Scenario C: Dynamic asymmetric chicane navigation through multiple storage bays
-        y1 = (rnd() - 0.5) * 1.5;
-        y2 = -y1 * (0.8 + rnd() * 0.3);
-        y3 = (rnd() - 0.5) * 1.6;
-        y4 = -y3 * 0.85;
-        y5 = (rnd() - 0.5) * 1.0;
-        y6 = y5;
+        // Scenario C: Dynamic Multi-Chicane Routing
+        waypointsX = [0.0, 12.0, 22.0, 34.0, 46.0, 58.0, 70.0, 80.0];
+        const a1 = (rnd() - 0.5) * 2.2;
+        const a2 = -a1 * 0.7 + (rnd() - 0.5) * 0.6;
+        const a3 = (rnd() - 0.5) * 1.6;
+        waypointsY = [
+          0.0,
+          a1 * 0.5,
+          a1,
+          0.0,
+          a2,
+          a3,
+          0.0,
+          0.0
+        ];
       }
-
-      // Clamp all waypoints safely within the wide warehouse corridor (|y| <= 1.8m)
-      const clampY = v => Math.max(-1.8, Math.min(1.8, v));
-      const waypointsY = [
-        0.0,
-        clampY(y1),
-        clampY(y2),
-        clampY(y3),
-        clampY(y4),
-        clampY(y5),
-        clampY(y6)
-      ];
 
       currentSpline = solveCubicSpline(waypointsX, waypointsY);
 
-      // Randomize static obstacles adapted to this unique trajectory
       if (courseActive) {
         generateRandomObstacles(rnd);
       }
-
-      // Randomize crossing forklift aisle positions and crossing speeds
       randomizeForklifts(rnd);
-
-      // Synchronize 3D Bay positions with the new random path
       updateDestinationsToPath();
 
-      // Update UI seed label
       const seedBadge = document.getElementById('path-seed-label');
       if (seedBadge) seedBadge.textContent = `Seed #${currentSeed}`;
     }
@@ -517,43 +547,50 @@
     function generateRandomObstacles(rndFn) {
       const rnd = rndFn || Math.random;
       obstacles = [];
-      const types = ['pallet', 'drums', 'crates', 'barrier'];
-      const labels = ['CARGO PALLET', 'HAZARD DRUMS', 'FALLEN CRATES', 'MAINTENANCE BARRIER'];
+      const types = ['pallet', 'drums', 'cones', 'tool_cart', 'spill', 'crate', 'pod'];
+      const labels = [
+        'CARGO PALLET & CARTONS',
+        'HAZARD DRUM CLUSTER',
+        'SAFETY TRAFFIC CONES',
+        'MOBILE TOOL CART',
+        'CHEMICAL SPILL STATION',
+        'HEAVY MACHINERY CRATE',
+        'INSPECTION SENSOR POD'
+      ];
 
-      // Place 4 obstacles spaced along the 75m corridor (minimum 12m spacing)
-      const obstacleXs = [15.0 + rnd() * 3.0, 31.0 + rnd() * 3.0, 48.0 + rnd() * 3.0, 64.0 + rnd() * 3.0];
+      const count = obstacleDensity; // 4, 8, or 12
+      const step = (68.0 - 8.0) / count;
 
-      obstacleXs.forEach((curX, i) => {
-        if (curX > 71.0) return;
+      for (let i = 0; i < count; i++) {
+        const curX = 8.0 + (i + 0.5) * step + (rnd() - 0.5) * 1.6;
+        if (curX > 71.0) continue;
 
-        // Nominal path coordinate at curX
         const nominal = evaluateSpline(currentSpline, curX);
         const nominalY = nominal.y;
 
-        // Place obstacle directly in the nominal path
-        const lateralShift = (rnd() - 0.5) * 0.25;
+        const lateralShift = (rnd() - 0.5) * 0.3;
         let obsY = nominalY + lateralShift;
-        obsY = Math.max(-1.6, Math.min(1.6, obsY));
+        obsY = Math.max(-1.7, Math.min(1.7, obsY));
 
-        // Guaranteed dodge direction away from walls towards the wide corridor center
+        // Dodge direction: prioritize steering towards corridor center
         let dodgeDir = (obsY >= 0.0) ? -1 : 1;
 
-        // Desired apex clearance: guarantees at least 1.85m lateral offset from obstacle center
+        // Guaranteed apex clearance: at least 1.85m lateral offset from obstacle center
         const targetDetourY = obsY + dodgeDir * 1.85;
         const detourAmp = targetDetourY - nominalY;
 
-        const tIdx = Math.floor(rnd() * types.length);
+        const tIdx = i % types.length;
         obstacles.push({
           id: 'rnd_obs_' + i + '_' + Math.floor(rnd() * 10000),
           x: parseFloat(curX.toFixed(1)),
           y: parseFloat(obsY.toFixed(2)),
           dodgeDir: dodgeDir,
           detourAmp: parseFloat(detourAmp.toFixed(3)),
-          radius: 0.6,
+          radius: 0.65,
           type: types[tIdx],
           label: labels[tIdx]
         });
-      });
+      }
 
       isReplanned = (obstacles.length > 0);
       renderAllStaticObstacles();
@@ -566,13 +603,10 @@
       const rnd = rndFn || Math.random;
       const baseXs = [18.0, 35.0, 53.0, 69.0];
       forklifts.forEach((fl, idx) => {
-        fl.x = parseFloat((baseXs[idx] + (rnd() - 0.5) * 3.0).toFixed(1));
-        fl.y = parseFloat(((rnd() - 0.5) * 6.0).toFixed(2));
-        const speed = 0.28 + rnd() * 0.25;
-        const dir = rnd() > 0.5 ? 1 : -1;
-        fl.vy = parseFloat((speed * dir).toFixed(3));
+        fl.x = parseFloat((baseXs[idx] + (rnd() - 0.5) * 2.5).toFixed(1));
+        fl.y = parseFloat(((rnd() - 0.5) * 5.5).toFixed(2));
+        fl.vy = (rnd() > 0.5 ? 1 : -1) * (0.32 + rnd() * 0.12);
       });
-
       if (scene && forkliftMeshes && forkliftMeshes.length > 0) {
         forklifts.forEach((fl, i) => {
           if (forkliftMeshes[i]) {
@@ -586,22 +620,20 @@
       if (!currentSpline) return;
       for (const [id, d] of Object.entries(destinations)) {
         const p = evaluateSpline(currentSpline, d.x);
-        d.y = parseFloat(p.y.toFixed(2));
-        d.y = Math.max(-2.2, Math.min(2.2, d.y));
-
-        if (scene && bayMarkers && bayMarkers[id]) {
+        d.y = parseFloat(p.y.toFixed(3));
+        if (bayMarkers[id]) {
           bayMarkers[id].position.set(d.x, 0, -d.y);
         }
       }
+      buildTrajectoryRibbons();
     }
 
-    // Mathematical Reference Trajectory & Multi-Obstacle Replanning
     function getReferencePose(x, replanActive) {
       if (!currentSpline) {
         generateRandomPath();
       }
 
-      // 1. Evaluate baseline procedural spline
+      // 1. Evaluate baseline procedural natural cubic spline
       const base = evaluateSpline(currentSpline, x);
       let yRef = base.y;
       let dydx = base.dy;
@@ -609,13 +641,14 @@
 
       // 2. Multi-Obstacle Smooth Evasive Bypass (Guaranteed 1.85m clearance)
       if (replanActive && obstacles.length > 0) {
+        const sigmaSq = (obstacles.length > 8) ? 11.0 : (obstacles.length > 5 ? 14.0 : 22.0);
+        const denom = sigmaSq * sigmaSq;
         for (const obs of obstacles) {
           const dx = x - obs.x;
-          // Smooth 16m wide evasion envelope (spread sigma^2 = 26.0)
-          if (Math.abs(dx) < 8.0) {
-            const detour = obs.detourAmp * Math.exp(-Math.pow(dx, 2) / 26.0);
-            const dDetour = -detour * (2.0 * dx / 26.0);
-            const d2Detour = detour * (4.0 * dx * dx / 676.0 - 2.0 / 26.0);
+          if (Math.abs(dx) < 6.5) {
+            const detour = obs.detourAmp * Math.exp(-Math.pow(dx, 2) / sigmaSq);
+            const dDetour = -detour * (2.0 * dx / sigmaSq);
+            const d2Detour = detour * (4.0 * dx * dx / denom - 2.0 / sigmaSq);
 
             yRef += detour;
             dydx += dDetour;
@@ -658,14 +691,14 @@
       controls.dampingFactor = 0.05;
       controls.maxPolarAngle = Math.PI / 2 - 0.02;
       controls.minDistance = 2.0;
-      controls.maxDistance = 90.0;
+      controls.maxDistance = 110.0;
     }
 
     // --- 4. 3D Lighting (Bright, High-Visibility Industrial Warehouse) ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.55);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.6);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
     dirLight.position.set(45, 45, 15);
     scene.add(dirLight);
 
@@ -675,7 +708,6 @@
       highBayLight.position.set(xPos, 9.2, 0);
       scene.add(highBayLight);
 
-      // Light fixture visual
       const fixture = new THREE.Mesh(
         new THREE.CylinderGeometry(0.35, 0.55, 0.22, 16),
         new THREE.MeshBasicMaterial({ color: 0x93c5fd })
@@ -684,12 +716,12 @@
       scene.add(fixture);
     }
 
-    // --- 5. Expansive Industrial Warehouse Floor (140m x 44m) & Architectural Walls ---
-    const floorGeo = new THREE.PlaneGeometry(140, 44);
+    // --- 5. Polished Industrial Epoxy Floor (150m x 44m) ---
+    const floorGeo = new THREE.PlaneGeometry(150, 44);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x475569, // Clean, high-visibility light industrial slate floor
-      roughness: 0.35,
-      metalness: 0.2
+      roughness: 0.32,
+      metalness: 0.22
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.position.set(42, 0, 0);
@@ -697,23 +729,23 @@
     scene.add(floor);
 
     // High-contrast industrial floor grid
-    const gridHelper = new THREE.GridHelper(140, 70, 0x64748b, 0x475569);
+    const gridHelper = new THREE.GridHelper(150, 75, 0x64748b, 0x475569);
     gridHelper.position.set(42, 0.01, 0);
     scene.add(gridHelper);
 
     // Safety yellow floor hazard boundary stripes along the entire runway
     function createSafetyLine(x, y, len) {
-      const lineGeo = new THREE.PlaneGeometry(len, 0.18);
+      const lineGeo = new THREE.PlaneGeometry(len, 0.20);
       const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
       const line = new THREE.Mesh(lineGeo, lineMat);
       line.position.set(x, 0.02, y);
       line.rotation.x = -Math.PI / 2;
       scene.add(line);
     }
-    createSafetyLine(42, 3.8, 120);
-    createSafetyLine(42, -3.8, 120);
+    createSafetyLine(42, 3.8, 130);
+    createSafetyLine(42, -3.8, 130);
 
-    // High-visibility zebra crosswalk markings at the 4 forklift crossing aisles
+    // High-visibility zebra crosswalk markings at the 4 crossing aisles
     [18.0, 35.0, 53.0, 69.0].forEach(xPos => {
       for (let zy = -3.2; zy <= 3.2; zy += 0.8) {
         const stripe = new THREE.Mesh(
@@ -726,7 +758,78 @@
       }
     });
 
-    // --- 7. Loading Bays (3D Visual Docking Platforms up to 75m) ---
+    // --- 6. Stainless Steel Perimeter Safety Bollards with Glowing Solar LED Caps ---
+    const bollardGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.85, 16);
+    const bollardMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.85, roughness: 0.2 });
+    const capGeo = new THREE.CylinderGeometry(0.085, 0.085, 0.08, 16);
+    const capMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+    for (let bx = -8.0; bx <= 92.0; bx += 6.0) {
+      [-4.8, 4.8].forEach(by => {
+        const bGroup = new THREE.Group();
+        bGroup.position.set(bx, 0, by);
+
+        const bPost = new THREE.Mesh(bollardGeo, bollardMat);
+        bPost.position.y = 0.425;
+        bPost.castShadow = true;
+        bGroup.add(bPost);
+
+        const bCap = new THREE.Mesh(capGeo, capMat);
+        bCap.position.y = 0.89;
+        bGroup.add(bCap);
+
+        scene.add(bGroup);
+      });
+    }
+
+    // --- 7. Overhead Intersection Warning Gantries with Active Traffic Signals ---
+    [18.0, 35.0, 53.0, 69.0].forEach((gx, idx) => {
+      const gantryGroup = new THREE.Group();
+      gantryGroup.position.set(gx, 0, 0);
+
+      const archMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 });
+      
+      // Dual side support columns
+      const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 5.4, 12), archMat);
+      postL.position.set(0, 2.7, 4.2);
+      gantryGroup.add(postL);
+
+      const postR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 5.4, 12), archMat);
+      postR.position.set(0, 2.7, -4.2);
+      gantryGroup.add(postR);
+
+      // Overhead cross beam
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.24, 8.6), archMat);
+      beam.position.set(0, 5.4, 0);
+      gantryGroup.add(beam);
+
+      // Overhead Dual Traffic Status Lights
+      const signalHousing = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.45, 0.8), new THREE.MeshBasicMaterial({ color: 0x0f172a }));
+      signalHousing.position.set(0, 5.15, 0);
+      gantryGroup.add(signalHousing);
+
+      // Traffic LED bulb
+      const signalBulb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.14, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 1.0 })
+      );
+      signalBulb.position.set(0, 5.15, 0);
+      gantryGroup.add(signalBulb);
+
+      scene.add(gantryGroup);
+      crossingGantries.push({ group: gantryGroup, bulb: signalBulb, x: gx });
+    });
+
+    // Start Station Induction Charging Pad
+    const startPad = new THREE.Mesh(
+      new THREE.RingGeometry(0.8, 1.25, 32),
+      new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide })
+    );
+    startPad.rotation.x = -Math.PI / 2;
+    startPad.position.set(0, 0.025, 0);
+    scene.add(startPad);
+
+    // --- 8. Loading Bays (3D Visual Docking Platforms up to 75m) ---
     for (const [id, d] of Object.entries(destinations)) {
       const bayGroup = new THREE.Group();
       // Glowing floor ring
@@ -770,12 +873,16 @@
       bayMarkers[id] = bayGroup;
     }
 
-    // --- 8. 3D AGV Vehicle Model ---
+    // --- 9. SteadyPath Autonomous Guided Vehicle (AGV) 3D Model ---
     const agvGroup = new THREE.Group();
 
-    // Main Chassis Body (1.6m x 0.85m x 0.45m)
-    const chassisGeo = new THREE.BoxGeometry(1.6, 0.42, 0.85);
-    const chassisMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.35, metalness: 0.4 });
+    // Main Chassis
+    const chassisGeo = new THREE.BoxGeometry(1.5, 0.38, 0.8);
+    const chassisMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7, // Sleek industrial blue
+      metalness: 0.4,
+      roughness: 0.3
+    });
     const chassis = new THREE.Mesh(chassisGeo, chassisMat);
     chassis.position.set(0.6, 0.35, 0);
     chassis.castShadow = true;
@@ -881,49 +988,166 @@
     hlRight.position.set(1.42, 0.22, -0.28);
     agvGroup.add(hlRight);
 
-    // Forward Illuminating Spotlight
-    const headlightSpot = new THREE.SpotLight(0xffffff, 2.2, 16.0, Math.PI / 5, 0.4, 1.2);
-    headlightSpot.position.set(1.45, 0.35, 0);
-    const spotTarget = new THREE.Object3D();
-    spotTarget.position.set(8.0, 0, 0);
-    agvGroup.add(spotTarget);
-    headlightSpot.target = spotTarget;
-    agvGroup.add(headlightSpot);
-
     scene.add(agvGroup);
 
-    // --- 9. Multiple 3D Obstacles Setup ---
+    // --- 10. Multiple 3D Industrial Obstacles Setup (7 Realistic Types) ---
     function spawn3DStaticObstacle(obs) {
       if (!scene) return;
       const group = new THREE.Group();
 
-      if (obs.type === 'pallet' || obs.type === 'crates') {
-        const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 1.2), new THREE.MeshStandardMaterial({ color: 0x78350f }));
-        pallet.position.y = 0.075;
-        group.add(pallet);
-        const box = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 1.0), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.7 }));
-        box.position.y = 0.65;
-        box.castShadow = true;
-        group.add(box);
+      if (obs.type === 'pallet') {
+        // Euro Pallet with Stacked Shipping Cartons & Shrink Wrap
+        const palWood = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.14, 1.0), new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.85 }));
+        palWood.position.y = 0.07;
+        group.add(palWood);
+
+        const cartonMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.75 });
+        const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.75, 0.85), cartonMat);
+        c1.position.y = 0.52;
+        c1.castShadow = true;
+        group.add(c1);
+
+        // Semi-transparent protective stretch wrap
+        const wrap = new THREE.Mesh(
+          new THREE.BoxGeometry(0.97, 0.77, 0.87),
+          new THREE.MeshStandardMaterial({ color: 0x0f172a, transparent: true, opacity: 0.35, roughness: 0.1 })
+        );
+        wrap.position.y = 0.52;
+        group.add(wrap);
       } else if (obs.type === 'drums') {
-        // Oil drum cluster
-        const drumMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.7, roughness: 0.3 });
-        [[-0.25, -0.25], [0.25, -0.25], [0.0, 0.25]].forEach(([dx, dz]) => {
-          const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.9, 16), drumMat);
-          drum.position.set(dx, 0.45, dz);
+        // Trio of Chemical / Oil Hazard Drums
+        const drumMatBlue = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.7, roughness: 0.3 });
+        const drumMatYellow = new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.6, roughness: 0.3 });
+
+        [
+          { dx: -0.24, dz: -0.22, mat: drumMatBlue },
+          { dx: 0.24, dz: -0.22, mat: drumMatYellow },
+          { dx: 0.0, dz: 0.24, mat: drumMatBlue }
+        ].forEach(dConf => {
+          const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.85, 16), dConf.mat);
+          drum.position.set(dConf.dx, 0.425, dConf.dz);
           drum.castShadow = true;
           group.add(drum);
+
+          // Drum reinforcing ring
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.225, 0.015, 8, 16), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+          ring.rotation.x = Math.PI / 2;
+          ring.position.set(dConf.dx, 0.425, dConf.dz);
+          group.add(ring);
+        });
+      } else if (obs.type === 'cones') {
+        // Dual Fluorescent Orange Safety Traffic Cones with Reflective White Bands
+        const coneMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.4 });
+        const reflMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+        [-0.32, 0.32].forEach(cz => {
+          const coneBase = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.38), coneMat);
+          coneBase.position.set(0, 0.02, cz);
+          group.add(coneBase);
+
+          const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.16, 0.65, 16), coneMat);
+          cone.position.set(0, 0.34, cz);
+          cone.castShadow = true;
+          group.add(cone);
+
+          // Reflective sleeve
+          const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 0.14, 16), reflMat);
+          sleeve.position.set(0, 0.38, cz);
+          group.add(sleeve);
+        });
+
+        // Yellow-black hazard chain linking the cones
+        const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.64, 8), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
+        chain.position.set(0, 0.58, 0);
+        chain.rotation.x = Math.PI / 2;
+        group.add(chain);
+      } else if (obs.type === 'tool_cart') {
+        // Red Industrial Maintenance Tool Trolley
+        const cartMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, metalness: 0.5, roughness: 0.4 });
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7 });
+
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.65, 0.55), cartMat);
+        body.position.y = 0.45;
+        body.castShadow = true;
+        group.add(body);
+
+        // Chrome push handle
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.45, 8), darkMat);
+        handle.position.set(-0.46, 0.75, 0);
+        handle.rotation.x = Math.PI / 2;
+        group.add(handle);
+
+        // 4 Caster Wheels
+        [[-0.35, -0.22], [0.35, -0.22], [-0.35, 0.22], [0.35, 0.22]].forEach(([wx, wz]) => {
+          const caster = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12), darkMat);
+          caster.rotation.x = Math.PI / 2;
+          caster.position.set(wx, 0.06, wz);
+          group.add(caster);
+        });
+      } else if (obs.type === 'spill') {
+        // Bright Yellow Bunded Spill Containment Platform with Caution Sign
+        const bundMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
+        const bund = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.16, 1.1), bundMat);
+        bund.position.y = 0.08;
+        bund.castShadow = true;
+        group.add(bund);
+
+        // Grating deck
+        const grate = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 0.95), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 }));
+        grate.position.y = 0.17;
+        group.add(grate);
+
+        // Standing A-Frame Caution Sign
+        const signMat = new THREE.MeshStandardMaterial({ color: 0xfacc15 });
+        const signSide1 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.55, 0.03), signMat);
+        signSide1.position.set(0, 0.45, -0.08);
+        signSide1.rotation.x = Math.PI / 10;
+        group.add(signSide1);
+        const signSide2 = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.55, 0.03), signMat);
+        signSide2.position.set(0, 0.45, 0.08);
+        signSide2.rotation.x = -Math.PI / 10;
+        group.add(signSide2);
+      } else if (obs.type === 'crate') {
+        // Heavy Industrial Wooden Machinery Crate
+        const crateMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.85 });
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.8, roughness: 0.3 });
+
+        const crateBox = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.85, 0.85), crateMat);
+        crateBox.position.y = 0.425;
+        crateBox.castShadow = true;
+        group.add(crateBox);
+
+        // Steel Corner Brackets
+        [-0.48, 0.48].forEach(sx => {
+          [-0.41, 0.41].forEach(sz => {
+            const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.85, 0.06), steelMat);
+            bracket.position.set(sx, 0.425, sz);
+            group.add(bracket);
+          });
         });
       } else {
-        // Maintenance barrier
-        const barMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 });
-        const post = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.25), barMat);
-        post.position.y = 0.3;
-        post.castShadow = true;
-        group.add(post);
+        // Autonomous Inspection Sensor Pod
+        const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.7 });
+        const tealMat = new THREE.MeshStandardMaterial({ color: 0x0d9488, metalness: 0.5 });
+
+        // Tripod legs
+        for (let a = 0; a < 3; a++) {
+          const angle = a * (2 * Math.PI / 3);
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.75, 8), darkMat);
+          leg.position.set(0.2 * Math.cos(angle), 0.35, 0.2 * Math.sin(angle));
+          leg.rotation.z = Math.PI / 12 * Math.cos(angle);
+          leg.rotation.x = Math.PI / 12 * Math.sin(angle);
+          group.add(leg);
+        }
+
+        // Sensor head
+        const head = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.25, 16), tealMat);
+        head.position.y = 0.78;
+        head.castShadow = true;
+        group.add(head);
       }
 
-      // Ground safety halo
+      // Ground Safety Circle
       const haloGeo = new THREE.RingGeometry(0.85, 1.15, 32);
       const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
       const halo = new THREE.Mesh(haloGeo, haloMat);
@@ -931,17 +1155,17 @@
       halo.position.y = 0.02;
       group.add(halo);
 
-      // Floating 3D Warning Diamond Beacon
-      const beaconColor = (obs.type === 'drums' ? 0x06b6d4 : (obs.type === 'barrier' ? 0xfacc15 : 0xef4444));
+      // Floating 3D Warning Beacon
+      const beaconColor = (obs.type === 'drums' ? 0x06b6d4 : (obs.type === 'cones' || obs.type === 'spill' ? 0xfacc15 : 0xef4444));
       const floatBeacon = new THREE.Mesh(
-        new THREE.OctahedronGeometry(0.28, 0),
+        new THREE.OctahedronGeometry(0.25, 0),
         new THREE.MeshStandardMaterial({ color: beaconColor, emissive: beaconColor, emissiveIntensity: 1.0 })
       );
       floatBeacon.position.set(0, 1.6, 0);
       floatBeacon.userData.isBeacon = true;
       group.add(floatBeacon);
 
-      const pLight = new THREE.PointLight(beaconColor, 1.0, 4.0);
+      const pLight = new THREE.PointLight(beaconColor, 0.9, 4.0);
       pLight.position.set(0, 1.6, 0);
       group.add(pLight);
 
@@ -962,34 +1186,270 @@
     }
     renderAllStaticObstacles();
 
-    // B. 4 Crossing Dynamic Forklifts Meshes
-    forklifts.forEach((fl, idx) => {
+    // --- 11. Detailed Electric Forklifts & AMR Logistics Pods (Replacing "Moving Blocks") ---
+    function createForkliftMesh() {
       const flGroup = new THREE.Group();
-      // Body
-      const flBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 0.9), new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.3 }));
-      flBody.position.set(0, 0.45, 0);
-      flBody.castShadow = true;
-      flGroup.add(flBody);
 
-      // Mast
-      const flMast = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-      flMast.position.set(0.95, 0.9, 0);
-      flGroup.add(flMast);
+      const chassisMat = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.3, roughness: 0.4 }); // Safety Orange
+      const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.3 }); // Dark Slate Steel
+      const rubberMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
+      const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.1 });
 
-      // Forks
-      const flFork1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-      flFork1.position.set(1.4, 0.15, 0.2);
-      flGroup.add(flFork1);
-      const flFork2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-      flFork2.position.set(1.4, 0.15, -0.2);
-      flGroup.add(flFork2);
+      // 1. Lower Chassis & Battery Enclosure
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.55, 0.95), chassisMat);
+      chassis.position.set(0.08, 0.42, 0);
+      chassis.castShadow = true;
+      flGroup.add(chassis);
 
-      flGroup.position.set(fl.x, 0, -fl.y);
-      scene.add(flGroup);
-      forkliftMeshes.push(flGroup);
+      // Lower impact skirt
+      const skirt = new THREE.Mesh(new THREE.BoxGeometry(1.88, 0.12, 0.98), darkMetalMat);
+      skirt.position.set(0.08, 0.16, 0);
+      flGroup.add(skirt);
+
+      // 2. Rear Cast Counterweight
+      const cw = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.65, 0.92), darkMetalMat);
+      cw.position.set(-0.75, 0.52, 0);
+      cw.castShadow = true;
+      flGroup.add(cw);
+
+      // Counterweight cooling slats
+      for (let sy = 0.35; sy <= 0.65; sy += 0.1) {
+        const slat = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.72), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+        slat.position.set(-1.03, sy, 0);
+        flGroup.add(slat);
+      }
+
+      // 3. 4 Rubber Wheels that Rotate!
+      const wheels = [];
+      const wheelGeomFront = new THREE.CylinderGeometry(0.24, 0.24, 0.14, 20);
+      const wheelGeomRear = new THREE.CylinderGeometry(0.19, 0.19, 0.12, 20);
+
+      [
+        { x: 0.62, y: 0.24, z: 0.48, geom: wheelGeomFront },
+        { x: 0.62, y: 0.24, z: -0.48, geom: wheelGeomFront },
+        { x: -0.55, y: 0.19, z: 0.45, geom: wheelGeomRear },
+        { x: -0.55, y: 0.19, z: -0.45, geom: wheelGeomRear }
+      ].forEach(wConf => {
+        const wGroup = new THREE.Group();
+        wGroup.position.set(wConf.x, wConf.y, wConf.z);
+
+        const tire = new THREE.Mesh(wConf.geom, rubberMat);
+        tire.rotation.x = Math.PI / 2;
+        tire.castShadow = true;
+        wGroup.add(tire);
+
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(wConf.geom.parameters.radiusTop * 0.55, wConf.geom.parameters.radiusBottom * 0.55, wConf.geom.parameters.height + 0.01, 12), chromeMat);
+        rim.rotation.x = Math.PI / 2;
+        wGroup.add(rim);
+
+        flGroup.add(wGroup);
+        wheels.push(wGroup);
+      });
+      flGroup.userData.wheels = wheels;
+
+      // 4. Operator Cabin & Roll Cage (Overhead Guard)
+      const pillarGeo = new THREE.CylinderGeometry(0.035, 0.035, 1.35, 12);
+      [
+        { x: 0.38, z: 0.38 }, { x: 0.38, z: -0.38 },
+        { x: -0.38, z: 0.38 }, { x: -0.38, z: -0.38 }
+      ].forEach(p => {
+        const pil = new THREE.Mesh(pillarGeo, darkMetalMat);
+        pil.position.set(p.x, 1.25, p.z);
+        pil.castShadow = true;
+        flGroup.add(pil);
+      });
+
+      // Protective Roof Grid
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.05, 0.85), darkMetalMat);
+      roof.position.set(0.0, 1.93, 0);
+      flGroup.add(roof);
+
+      for (let rx = -0.32; rx <= 0.32; rx += 0.14) {
+        const rSlat = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.76), chromeMat);
+        rSlat.position.set(rx, 1.95, 0);
+        flGroup.add(rSlat);
+      }
+
+      // Seat & Steering
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.32, 0.42), new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.9 }));
+      seat.position.set(-0.08, 0.82, 0);
+      flGroup.add(seat);
+      const seatBack = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.42, 0.42), new THREE.MeshStandardMaterial({ color: 0x09090b, roughness: 0.9 }));
+      seatBack.position.set(-0.24, 1.1, 0);
+      flGroup.add(seatBack);
+
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.42, 8), darkMetalMat);
+      col.position.set(0.22, 0.88, 0);
+      col.rotation.z = -Math.PI / 6;
+      flGroup.add(col);
+      const steerWheel = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.02, 8, 16), darkMetalMat);
+      steerWheel.position.set(0.32, 1.05, 0);
+      steerWheel.rotation.y = Math.PI / 2;
+      steerWheel.rotation.x = Math.PI / 4;
+      flGroup.add(steerWheel);
+
+      // 5. Dual-Stage Vertical Mast & Hydraulic Cylinder
+      const leftMast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.95, 0.08), darkMetalMat);
+      leftMast.position.set(1.05, 1.05, 0.28);
+      flGroup.add(leftMast);
+      const rightMast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.95, 0.08), darkMetalMat);
+      rightMast.position.set(1.05, 1.05, -0.28);
+      flGroup.add(rightMast);
+
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.4, 12), chromeMat);
+      cyl.position.set(1.05, 0.85, 0);
+      flGroup.add(cyl);
+
+      // Carriage & Steel Forks
+      const carriage = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.65), darkMetalMat);
+      carriage.position.set(1.12, 0.35, 0);
+      flGroup.add(carriage);
+
+      const forkMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8, roughness: 0.2 });
+      const fork1 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 0.1), forkMat);
+      fork1.position.set(1.6, 0.14, 0.22);
+      flGroup.add(fork1);
+      const fork2 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.04, 0.1), forkMat);
+      fork2.position.set(1.6, 0.14, -0.22);
+      flGroup.add(fork2);
+
+      // 6. Real Cargo Pallet & Cartons on Forks
+      const cargoGroup = new THREE.Group();
+      cargoGroup.position.set(1.62, 0.16, 0);
+
+      const palWood = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.12, 0.9), new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.8 }));
+      palWood.position.y = 0.06;
+      cargoGroup.add(palWood);
+
+      const cartonMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 });
+      const c1 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.65, 0.8), cartonMat);
+      c1.position.y = 0.46;
+      c1.castShadow = true;
+      cargoGroup.add(c1);
+
+      const wrap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.87, 0.67, 0.82),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, transparent: true, opacity: 0.35, roughness: 0.1 })
+      );
+      wrap.position.y = 0.46;
+      cargoGroup.add(wrap);
+
+      flGroup.add(cargoGroup);
+
+      // 7. Active Safety Lighting
+      const flBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.08, 12, 12),
+        new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 1.2 })
+      );
+      flBeacon.position.set(0.0, 2.02, 0);
+      flGroup.add(flBeacon);
+      flGroup.userData.beacon = flBeacon;
+
+      const flHlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const flHl1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 12), flHlMat);
+      flHl1.rotation.z = Math.PI / 2;
+      flHl1.position.set(1.08, 1.7, 0.28);
+      flGroup.add(flHl1);
+      const flHl2 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 12), flHlMat);
+      flHl2.rotation.z = Math.PI / 2;
+      flHl2.position.set(1.08, 1.7, -0.28);
+      flGroup.add(flHl2);
+
+      // 8. Warehouse "BlueSpot" Floor Warning Spotlight
+      const blueSpot = new THREE.Mesh(
+        new THREE.RingGeometry(0.05, 0.45, 32),
+        new THREE.MeshBasicMaterial({ color: 0x0284c7, transparent: true, opacity: 0.75, side: THREE.DoubleSide })
+      );
+      blueSpot.rotation.x = -Math.PI / 2;
+      blueSpot.position.set(2.6, 0.02, 0);
+      flGroup.add(blueSpot);
+
+      return flGroup;
+    }
+
+    function createAMRMesh() {
+      const amrGroup = new THREE.Group();
+
+      const cyanMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, metalness: 0.3, roughness: 0.3 }); // Electric Cyan
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.6, roughness: 0.4 });
+      const rubberMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.9 });
+      const glowRingMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x22d3ee, emissiveIntensity: 1.0 });
+
+      // 1. Sleek Lower Rounded Chassis
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.7, 0.32, 24), darkMat);
+      base.position.y = 0.22;
+      base.castShadow = true;
+      amrGroup.add(base);
+
+      // Protective upper casing
+      const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.65, 0.18, 24), cyanMat);
+      shell.position.y = 0.42;
+      shell.castShadow = true;
+      amrGroup.add(shell);
+
+      // 2. 360-degree LED Status Halo
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.64, 0.025, 12, 32), glowRingMat);
+      halo.rotation.x = Math.PI / 2;
+      halo.position.y = 0.35;
+      amrGroup.add(halo);
+      amrGroup.userData.halo = halo;
+
+      // 3. Rotating Drive Wheels
+      const wheels = [];
+      [-0.45, 0.45].forEach(zPos => {
+        const wGroup = new THREE.Group();
+        wGroup.position.set(0, 0.18, zPos);
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.08, 16), rubberMat);
+        tire.rotation.x = Math.PI / 2;
+        wGroup.add(tire);
+        amrGroup.add(wGroup);
+        wheels.push(wGroup);
+      });
+      amrGroup.userData.wheels = wheels;
+
+      // 4. Center 360-degree LiDAR Dome Scanner
+      const lidar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9 }));
+      lidar.position.set(0.35, 0.56, 0);
+      amrGroup.add(lidar);
+
+      // 5. Automated Tote Payload Rack
+      const rack = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.06, 0.65), darkMat);
+      rack.position.set(0, 0.54, 0);
+      amrGroup.add(rack);
+
+      const toteMat1 = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
+      const tote1 = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.28, 0.58), toteMat1);
+      tote1.position.set(0, 0.71, 0);
+      tote1.castShadow = true;
+      amrGroup.add(tote1);
+
+      const toteMat2 = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5 });
+      const tote2 = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.26, 0.56), toteMat2);
+      tote2.position.set(0, 0.98, 0);
+      tote2.castShadow = true;
+      amrGroup.add(tote2);
+
+      // Floor safety projection ring
+      const amrSpot = new THREE.Mesh(
+        new THREE.RingGeometry(0.05, 0.38, 24),
+        new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.65, side: THREE.DoubleSide })
+      );
+      amrSpot.rotation.x = -Math.PI / 2;
+      amrSpot.position.set(1.4, 0.02, 0);
+      amrGroup.add(amrSpot);
+
+      return amrGroup;
+    }
+
+    // Spawn 4 Crossing Logistics Vehicles
+    forklifts.forEach((fl, idx) => {
+      const mesh = (fl.type === 'amr') ? createAMRMesh() : createForkliftMesh();
+      mesh.position.set(fl.x, 0, -fl.y);
+      scene.add(mesh);
+      forkliftMeshes.push(mesh);
     });
 
-    // --- 10. 3D Trajectory Guidance Lane & Horizon ---
+    // --- 12. 3D Trajectory Guidance Lane & Horizon ---
     let refRibbonMesh = null;
     let refCenterLine = null;
     let trailLine = null;
@@ -1013,117 +1473,140 @@
       const W = 0.55; // 55cm wide luminous guidance track
 
       let indexCounter = 0;
-      for (let sx = 0; sx <= target.x; sx += 0.25) {
-        const p = getReferencePose(sx, isReplanned);
-        const px = sx;
-        const pz = -p.yRef;
-        const yaw = p.yawRef;
+      for (let x = 0.0; x <= target.x + 1.0; x += 0.25) {
+        const p = getReferencePose(x, isReplanned);
+        const perpX = -Math.sin(p.yawRef) * (W / 2);
+        const perpZ = -Math.cos(p.yawRef) * (W / 2);
 
-        centerPoints.push(new THREE.Vector3(px, 0.045, pz));
-
-        // Normal perpendicular in X-Z plane
-        const nx = Math.sin(yaw) * (W / 2);
-        const nz = Math.cos(yaw) * (W / 2);
-
-        // Left vertex & Right vertex
-        positions.push(px - nx, 0.035, pz - nz);
-        positions.push(px + nx, 0.035, pz + nz);
+        positions.push(x + perpX, 0.015, -p.yRef + perpZ);
+        positions.push(x - perpX, 0.015, -p.yRef - perpZ);
+        centerPoints.push(new THREE.Vector3(x, 0.025, -p.yRef));
 
         if (indexCounter > 0) {
-          const i = (indexCounter - 1) * 2;
-          indices.push(i, i + 1, i + 2);
-          indices.push(i + 1, i + 3, i + 2);
+          const i = indexCounter * 2;
+          indices.push(i - 2, i - 1, i);
+          indices.push(i - 1, i + 1, i);
         }
         indexCounter++;
       }
 
-      // 1. Wide 3D Floor Guidance Track
       const ribbonGeo = new THREE.BufferGeometry();
       ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       ribbonGeo.setIndex(indices);
       ribbonGeo.computeVertexNormals();
 
-      const ribbonMat = new THREE.MeshStandardMaterial({
-        color: isReplanned ? 0x0284c7 : 0x059669,
-        emissive: isReplanned ? 0x0369a1 : 0x047857,
-        emissiveIntensity: 0.6,
-        roughness: 0.3,
+      const ribbonMat = new THREE.MeshBasicMaterial({
+        color: 0x22d3ee,
         transparent: true,
-        opacity: 0.85,
+        opacity: 0.38,
         side: THREE.DoubleSide
       });
       refRibbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
-      refRibbonMesh.receiveShadow = true;
       scene.add(refRibbonMesh);
 
-      // 2. Crisp Bright White Dashed Center Line
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(centerPoints);
-      const lineMat = new THREE.LineDashedMaterial({
-        color: 0xffffff,
-        linewidth: 2,
-        dashSize: 0.5,
-        gapSize: 0.3
-      });
-      refCenterLine = new THREE.Line(lineGeo, lineMat);
-      refCenterLine.computeLineDistances();
+      const centerGeo = new THREE.BufferGeometry().setFromPoints(centerPoints);
+      const centerMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+      refCenterLine = new THREE.Line(centerGeo, centerMat);
       scene.add(refCenterLine);
     }
     buildTrajectoryRibbons();
 
-    // Actual Trajectory Trail (Electric Blue)
-    const trailGeom = new THREE.BufferGeometry();
-    const trailMat = new THREE.LineBasicMaterial({ color: 0x38bdf8 });
-    trailLine = new THREE.Line(trailGeom, trailMat);
+    // Driven Path History Trail
+    const maxTrailPoints = 800;
+    const trailGeo = new THREE.BufferGeometry();
+    const trailPositions = new Float32Array(maxTrailPoints * 3);
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+    const trailMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, linewidth: 2 });
+    trailLine = new THREE.Line(trailGeo, trailMat);
     scene.add(trailLine);
 
-    // MPC Horizon Rollout (Vivid Emerald Green)
-    const horizonGeom = new THREE.BufferGeometry();
-    const horizonMat = new THREE.LineBasicMaterial({ color: 0x10b981 });
-    horizonLine = new THREE.Line(horizonGeom, horizonMat);
+    // Predictive Horizon Ribbon (14 Steps Ahead)
+    const horizonGeo = new THREE.BufferGeometry();
+    const horizonPositions = new Float32Array(15 * 3);
+    horizonGeo.setAttribute('position', new THREE.BufferAttribute(horizonPositions, 3));
+    const horizonMat = new THREE.LineBasicMaterial({ color: 0x34d399, linewidth: 4 });
+    horizonLine = new THREE.Line(horizonGeo, horizonMat);
     scene.add(horizonLine);
 
-    // --- 11. Simulation Physics & Controller Loop (50 Hz) ---
+    // --- 13. Kinematic Simulation Step & Controller ---
     function stepSimulation() {
       const target = destinations[destId];
-      const distToGoal = Math.hypot(veh.x - target.x, veh.y - target.y);
+      const distToGoal = target.x - veh.x;
 
-      // Destination reached check
-      if (distToGoal < 0.15 && simTime > 2.0) {
+      if (distToGoal <= 0.25) {
         isRunning = false;
+        document.getElementById('play-icon').textContent = '▶';
         document.getElementById('play-text').textContent = 'Completed';
-        document.getElementById('play-icon').textContent = '✓';
-        document.getElementById('hud-status').textContent = 'DESTINATION REACHED';
-        document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
-        showToast(`🎯 DESTINATION REACHED: ${target.name} (${target.x}m)`);
+        document.getElementById('hud-status').textContent = 'MISSION ACCOMPLISHED';
+        document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm animate-pulse';
+        showToast(`DESTINATION REACHED: ${target.name} (${target.x.toFixed(1)}m)`);
         return;
       }
 
-      // Animate 4 Crossing Forklifts
+      // Animate 4 Crossing Logistics Vehicles (Electric Forklifts & AMRs)
       if (forkliftsActive) {
         forklifts.forEach((fl, i) => {
-          fl.y += fl.vy * dt;
-          if (fl.y > fl.max_y || fl.y < fl.min_y) fl.vy *= -1;
-          forkliftMeshes[i].position.set(fl.x, 0, -fl.y);
-          // Orient forklift facing travel direction
-          forkliftMeshes[i].rotation.y = (fl.vy > 0) ? -Math.PI / 2 : Math.PI / 2;
+          fl.y += fl.vy * dt * simSpeed;
+          if (fl.y > fl.max_y) {
+            fl.y = fl.max_y;
+            fl.vy = -Math.abs(fl.vy);
+          } else if (fl.y < fl.min_y) {
+            fl.y = fl.min_y;
+            fl.vy = Math.abs(fl.vy);
+          }
+          const mesh = forkliftMeshes[i];
+          if (mesh) {
+            mesh.position.set(fl.x, 0, -fl.y);
+            mesh.rotation.y = (fl.vy > 0) ? -Math.PI / 2 : Math.PI / 2;
+
+            // Roll wheels along axle proportional to movement!
+            if (mesh.userData.wheels) {
+              mesh.userData.wheels.forEach(w => {
+                w.rotation.x += Math.abs(fl.vy) * dt * simSpeed * 4.2;
+              });
+            }
+
+            // Beacon / Halo dynamic pulsations
+            if (mesh.userData.beacon) {
+              mesh.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 15.0);
+            }
+            if (mesh.userData.halo) {
+              mesh.userData.halo.material.emissiveIntensity = 0.7 + 0.5 * Math.sin(simTime * 8.0);
+            }
+          }
         });
       }
 
-      // Dynamic LiDAR Cross-Traffic Detection & Yielding for Crossing Forklifts
+      // Dynamic LiDAR Cross-Traffic Detection & Yielding
       let forkliftYield = false;
+      let activeCrossingX = null;
       if (forkliftsActive) {
         for (const fl of forklifts) {
           const dx = fl.x - veh.x;
           const dy = Math.abs(fl.y - veh.y);
-          // If forklift is in crossing corridor ahead (0.4m to 5.2m) and in the path zone (dy < 2.2m):
-          if (dx > 0.4 && dx < 5.2 && dy < 2.2) {
+          // If a vehicle is in the intersection corridor ahead (0.4m to 5.4m) and entering path (|dy| < 2.2m)
+          if (dx > 0.4 && dx < 5.4 && dy < 2.2) {
             forkliftYield = true;
+            activeCrossingX = fl.x;
             break;
           }
         }
       }
 
-      // Smooth deceleration near destination or yielding for crossing forklifts
+      // Update Overhead Gantry Traffic Lights
+      crossingGantries.forEach(g => {
+        const isHazard = (activeCrossingX !== null && Math.abs(g.x - activeCrossingX) < 1.0);
+        if (isHazard) {
+          const blink = (Math.sin(simTime * 12.0) > 0);
+          g.bulb.material.color.setHex(blink ? 0xef4444 : 0xf59e0b);
+          g.bulb.material.emissive.setHex(blink ? 0xef4444 : 0xf59e0b);
+        } else {
+          g.bulb.material.color.setHex(0x10b981);
+          g.bulb.material.emissive.setHex(0x10b981);
+        }
+      });
+
+      // Smooth deceleration near destination or yielding for crossing traffic
       let currVRef = vNominal;
       if (forkliftYield) {
         currVRef = 0.0;
@@ -1148,164 +1631,148 @@
 
       let steer = 0.0;
       let accel = 0.0;
-      let compTime = 3.8;
+      const solverStart = performance.now();
 
       if (controller === 'MPC') {
-        const ffSteer = Math.atan(wheelbase * ref.curvature);
-        const fbSteer = -0.92 * latError - 1.15 * yawError;
-        steer = ffSteer + fbSteer;
-        steer = Math.max(-0.5236, Math.min(0.5236, steer));
-        accel = -1.4 * velError;
-        compTime = 3.5 + Math.random() * 0.8;
-      } else {
-        // Stanley baseline (no curvature preview)
-        const ke = 0.95;
-        steer = -yawError + Math.atan2(-ke * latError, Math.max(0.2, veh.v)) + (Math.random() - 0.5) * 0.02;
-        steer = Math.max(-0.5236, Math.min(0.5236, steer));
-        accel = -1.0 * velError;
-        compTime = 0.15;
-      }
+        // SteadyPath Constrained Predictive Steering Control with Lookahead Preview
+        const previewX = veh.x + Math.max(0.8, veh.v * 0.95);
+        const previewRef = getReferencePose(previewX, isReplanned);
+        const previewDy = veh.y + veh.v * 0.95 * Math.sin(veh.yaw) - previewRef.yRef;
 
-      // Kinematic bicycle update
-      veh.x += veh.v * Math.cos(veh.yaw) * dt;
-      veh.y += veh.v * Math.sin(veh.yaw) * dt;
-      veh.yaw += (veh.v / wheelbase) * Math.tan(steer) * dt;
-      veh.v += accel * dt;
-      veh.v = Math.max(0.0, Math.min(2.5, veh.v));
-      veh.steer = steer;
-      veh.accel = accel;
+        const kLat = 0.85;
+        const kYaw = 1.35;
+        const kPreview = 0.65;
+        const ffwdSteer = Math.atan(wheelbase * ref.curvature);
 
-      // Update 3D trail
-      if (simStep % 2 === 0) {
-        veh.trail.push(new THREE.Vector3(veh.x, 0.05, -veh.y));
-        if (veh.trail.length > 500) veh.trail.shift();
-        trailGeom.setFromPoints(veh.trail);
-      }
+        const deltaRaw = ffwdSteer - (kLat * latError + kYaw * yawError + kPreview * previewDy);
+        const maxSteer = 0.5236; // 30 deg
+        steer = Math.max(-maxSteer, Math.min(maxSteer, deltaRaw));
 
-      // Update 3D MPC Horizon visualization
-      if (controller === 'MPC') {
-        const hPoints = [];
-        let hX = veh.x, hY = veh.y, hYaw = veh.yaw;
-        for (let k = 0; k < 14; k++) {
-          const hr = getReferencePose(hX, isReplanned);
-          const hDy = hY - hr.yRef;
-          const hLat = Math.cos(hr.yawRef) * hDy;
-          const hYawErr = Math.atan2(Math.sin(hYaw - hr.yawRef), Math.cos(hYaw - hr.yawRef));
-          const hSteer = Math.atan(wheelbase * hr.curvature) - 0.9 * hLat - 1.15 * hYawErr;
-          hX += 1.5 * Math.cos(hYaw) * dt;
-          hY += 1.5 * Math.sin(hYaw) * dt;
-          hYaw += (1.5 / wheelbase) * Math.tan(hSteer) * dt;
-          hPoints.push(new THREE.Vector3(hX, 0.15, -hY));
+        const maxSteerRate = 0.85 * dt;
+        const dSteer = steer - veh.steer;
+        steer = veh.steer + Math.max(-maxSteerRate, Math.min(maxSteerRate, dSteer));
+
+        // Predictive Horizon points (14 steps ahead)
+        const posAttr = horizonLine.geometry.attributes.position;
+        let simX = veh.x;
+        let simY = veh.y;
+        let simYaw = veh.yaw;
+        posAttr.setXYZ(0, simX, 0.04, -simY);
+
+        for (let step = 1; step <= 14; step++) {
+          const sX = simX + step * 0.45;
+          const pRef = getReferencePose(sX, isReplanned);
+          const pLat = Math.cos(pRef.yawRef) * (simY - pRef.yRef);
+          const pYaw = Math.atan2(Math.sin(simYaw - pRef.yawRef), Math.cos(simYaw - pRef.yawRef));
+          const pDelta = Math.atan(wheelbase * pRef.curvature) - (kLat * pLat + kYaw * pYaw);
+          const pSteer = Math.max(-maxSteer, Math.min(maxSteer, pDelta));
+
+          simX += veh.v * Math.cos(simYaw) * 0.12;
+          simY += veh.v * Math.sin(simYaw) * 0.12;
+          simYaw += (veh.v / wheelbase) * Math.tan(pSteer) * 0.12;
+          posAttr.setXYZ(step, simX, 0.04, -simY);
         }
-        horizonGeom.setFromPoints(hPoints);
+        posAttr.needsUpdate = true;
         horizonLine.visible = true;
       } else {
+        // Stanley Baseline (Reactive)
         horizonLine.visible = false;
+        const kStanley = 1.6;
+        const maxSteer = 0.5236;
+        const crossTrackTerm = Math.atan2(-kStanley * latError, Math.max(0.4, veh.v));
+        steer = yawError + crossTrackTerm;
+        steer = Math.max(-maxSteer, Math.min(maxSteer, steer));
       }
 
-      // Measure clearance to static obstacles and moving forklifts
-      let minClear = 999.0;
-      for (const obs of obstacles) {
-        const d = Math.hypot(veh.x - obs.x, veh.y - obs.y) - (obs.radius + 0.35);
-        if (d < minClear) minClear = Math.max(0.0, d);
+      // Longitudinal velocity control
+      const kVel = 1.8;
+      accel = -kVel * velError;
+      accel = Math.max(-2.5, Math.min(1.5, accel));
+
+      const compTime = performance.now() - solverStart;
+
+      // Kinematic Bicycle Integration
+      veh.v += accel * dt;
+      if (veh.v < 0.0) veh.v = 0.0;
+      veh.steer = steer;
+
+      veh.x += veh.v * Math.cos(veh.yaw) * dt;
+      veh.y += veh.v * Math.sin(veh.yaw) * dt;
+      veh.yaw += (veh.v / wheelbase) * Math.tan(veh.steer) * dt;
+
+      simTime += dt;
+      simStep++;
+
+      // Minimum clearance evaluation
+      let minClearance = 999.0;
+      if (courseActive) {
+        for (const obs of obstacles) {
+          const d = Math.hypot(veh.x - obs.x, veh.y - obs.y) - obs.radius - 0.45;
+          if (d < minClearance) minClearance = d;
+        }
       }
       if (forkliftsActive) {
         for (const fl of forklifts) {
-          const d = Math.hypot(veh.x - fl.x, veh.y - fl.y) - (fl.radius + 0.35);
-          if (d < minClear) minClear = Math.max(0.0, d);
+          const d = Math.hypot(veh.x - fl.x, veh.y - fl.y) - fl.radius - 0.45;
+          if (d < minClearance) minClearance = d;
         }
       }
 
-      if (minClear <= 0.0) {
-        totalCollisions++;
-        document.getElementById('collision-counter').textContent = `${totalCollisions} Collisions`;
-        document.getElementById('collision-counter').className = 'text-red-400 font-bold font-mono animate-pulse';
+      // Update 3D AGV Pose
+      agvGroup.position.set(veh.x, 0, -veh.y);
+      agvGroup.rotation.y = -veh.yaw;
+      frontSteerPivot.rotation.y = -veh.steer;
+
+      // LiDAR scanner sweep animation
+      lidarScanPivot.rotation.y = Math.sin(simTime * 14.0) * (Math.PI / 3);
+
+      // Trail logging
+      if (simStep % 2 === 0) {
+        veh.trail.push({ x: veh.x, y: veh.y });
+        if (veh.trail.length > maxTrailPoints) veh.trail.shift();
+
+        const tPos = trailLine.geometry.attributes.position;
+        for (let i = 0; i < veh.trail.length; i++) {
+          tPos.setXYZ(i, veh.trail[i].x, 0.03, -veh.trail[i].y);
+        }
+        trailLine.geometry.setDrawRange(0, veh.trail.length);
+        tPos.needsUpdate = true;
       }
 
-      simTime += dt;
-      simStep += 1;
-
-      updateHUD(latError, yawError, steer, minClear, compTime, target.x);
+      updateHUD(latError, yawError, steer, minClearance, compTime, target.x);
     }
 
-    // --- 12. 3D Render & Camera Update Loop ---
-    const simClock = new THREE.Clock();
-    let simAccum = 0;
-    const fixedDt = 0.025; // 40 Hz physics for buttery-smooth motion across any monitor refresh rate
-
+    // --- 14. Animation & Render Loop ---
     function animate() {
       requestAnimationFrame(animate);
 
-      const frameDelta = Math.min(simClock.getDelta(), 0.1);
       if (isRunning) {
-        simAccum += frameDelta * simSpeed;
-        while (simAccum >= fixedDt) {
+        for (let s = 0; s < simSpeed; s++) {
           stepSimulation();
-          simAccum -= fixedDt;
         }
       }
 
-      // Update 3D AGV position and orientation
-      agvGroup.position.set(veh.x, 0, -veh.y);
-      agvGroup.rotation.y = veh.yaw;
-
-      // Front wheel steering angle (visibly steers into corners and evasions)
-      frontSteerPivot.rotation.y = veh.steer;
-
-      // Realistic rolling wheel animation based on distance travelled
-      const wheelRoll = (veh.v * fixedDt) / 0.16;
-      rearLeftWheel.rotation.y += wheelRoll;
-      rearRightWheel.rotation.y += wheelRoll;
-      frontLeftWheel.rotation.y += wheelRoll;
-      frontRightWheel.rotation.y += wheelRoll;
-
-      // Animated 3D Sweeping LiDAR Laser Scanner (sweeps across +/-55 degrees)
-      if (typeof lidarScanPivot !== 'undefined') {
-        lidarScanPivot.rotation.y = Math.sin(Date.now() * 0.007) * 0.95;
-      }
-
-      // Safety strobe beacon flash
-      beaconLight.intensity = 0.6 + Math.sin(Date.now() * 0.015) * 0.8;
-
-      // LiDAR safety alert color shifts if any obstacle is close
-      let nearAlert = false;
-      for (const obs of obstacles) {
-        if (Math.hypot(veh.x - obs.x, veh.y - obs.y) < 4.0) nearAlert = true;
-      }
-      if (forkliftsActive) {
-        for (const fl of forklifts) {
-          if (Math.hypot(veh.x - fl.x, veh.y - fl.y) < 4.0) nearAlert = true;
-        }
-      }
-      const alertColor = nearAlert ? 0xef4444 : 0x38bdf8;
-      lidarFan.material.color.setHex(alertColor);
-      if (typeof lidarScanRay !== 'undefined') {
-        lidarScanRay.material.color.setHex(alertColor);
-      }
-
-      // Rotate floating obstacle hazard beacons for clear 3D visibility
+      // Floating obstacle hazard diamonds rotation & gentle float
       staticObstacleMeshes.forEach(m => {
-        m.children.forEach(c => {
-          if (c.userData && c.userData.isBeacon) {
+        m.traverse(c => {
+          if (c.userData.isBeacon) {
+            c.position.y = 1.6 + Math.sin(simTime * 3.5) * 0.12;
             c.rotation.y += 0.04;
           }
         });
       });
 
-      // Ultra-Smooth Steadicam Camera Modes (High-Rated Cinema Quality)
+      // Ultra-Smooth Cinema Camera Modes
       if (activeCamera === 'chase') {
         const camDist = 5.8;
-        const camHeight = 3.6; // High elevation ensures camera never intersects crates or obstacles
-
-        // Smoothly damped heading prevents snappy camera whipping
+        const camHeight = 3.6; // High elevation ensures camera never clips into obstacles
         const smoothYaw = veh.yaw * 0.35;
         const targetCamX = veh.x - camDist * Math.cos(smoothYaw);
         const rawCamZ = -veh.y + camDist * Math.sin(smoothYaw);
-        const clampedCamZ = Math.max(-2.5, Math.min(2.5, rawCamZ)); // Strictly held in open corridor center
+        const clampedCamZ = Math.max(-2.5, Math.min(2.5, rawCamZ));
 
         camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, clampedCamZ), 0.1);
 
-        // Smooth focal point ahead of vehicle absorbs steering jitters
         const desiredLookAt = new THREE.Vector3(
           veh.x + 3.8 * Math.cos(smoothYaw),
           0.70,
@@ -1315,6 +1782,10 @@
         else camLookTarget.lerp(desiredLookAt, 0.1);
 
         camera.lookAt(camLookTarget);
+      } else if (activeCamera === 'side') {
+        // Parallel side-tracking cinema camera
+        camera.position.lerp(new THREE.Vector3(veh.x - 1.2, 2.2, -veh.y + 4.8), 0.1);
+        camera.lookAt(veh.x + 2.5, 0.6, -veh.y);
       } else if (activeCamera === 'top') {
         // High-contrast overhead tracking camera
         camera.position.lerp(new THREE.Vector3(veh.x + 4.5, 24.0, -veh.y), 0.12);
@@ -1330,7 +1801,7 @@
     }
     animate();
 
-    // --- 13. UI & HUD Updates ---
+    // --- 15. UI & HUD Updates ---
     function updateHUD(latErr, yawErr, steer, clearance, compTime, totalTargetX) {
       document.getElementById('hud-time').textContent = simTime.toFixed(2) + 's';
       document.getElementById('hud-dist').textContent = `${veh.x.toFixed(1)}m / ${totalTargetX.toFixed(1)}m`;
@@ -1358,15 +1829,24 @@
         document.getElementById('hud-val-clear').textContent = '> 5.00 m';
         document.getElementById('badge-clear').textContent = 'SAFE';
         document.getElementById('badge-clear').className = 'text-emerald-400 font-mono font-bold';
+        document.getElementById('bar-clear').style.width = '100%';
+        document.getElementById('bar-clear').className = 'bg-emerald-400 h-full';
       } else {
-        document.getElementById('hud-val-clear').textContent = clearance.toFixed(2) + ' m';
-        if (clearance < 0.5) {
-          document.getElementById('badge-clear').textContent = 'CRITICAL';
-          document.getElementById('badge-clear').className = 'text-red-400 font-mono font-bold animate-pulse';
+        document.getElementById('hud-val-clear').textContent = `${Math.max(0, clearance).toFixed(2)} m`;
+        if (clearance < 0.3) {
+          document.getElementById('badge-clear').textContent = 'COLLISION RISK';
+          document.getElementById('badge-clear').className = 'text-red-400 font-mono font-bold';
+          document.getElementById('bar-clear').className = 'bg-red-500 h-full';
+        } else if (clearance < 0.8) {
+          document.getElementById('badge-clear').textContent = 'CAUTION';
+          document.getElementById('badge-clear').className = 'text-amber-400 font-mono font-bold';
+          document.getElementById('bar-clear').className = 'bg-amber-400 h-full';
         } else {
-          document.getElementById('badge-clear').textContent = 'SAFE';
+          document.getElementById('badge-clear').textContent = 'CLEAR';
           document.getElementById('badge-clear').className = 'text-emerald-400 font-mono font-bold';
+          document.getElementById('bar-clear').className = 'bg-emerald-400 h-full';
         }
+        document.getElementById('bar-clear').style.width = Math.min(100, (clearance / 2.5) * 100) + '%';
       }
     }
 
@@ -1374,84 +1854,100 @@
       const toast = document.getElementById('event-toast');
       document.getElementById('event-toast-msg').textContent = msg;
       toast.style.opacity = '1';
-      setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+      setTimeout(() => { toast.style.opacity = '0'; }, 3200);
     }
 
-    function resetSimulation(forceNewRandom = false) {
-      if (forceNewRandom || autoRandomizeOnReset) {
+    function resetSimulation(keepPath) {
+      isRunning = true;
+      simTime = 0.0;
+      simStep = 0;
+      document.getElementById('play-icon').textContent = '⏸';
+      document.getElementById('play-text').textContent = 'Pause';
+      document.getElementById('hud-status').textContent = 'RUNNING';
+      document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
+
+      if (!keepPath && autoRandomizeOnReset) {
         generateRandomPath();
       }
 
-      simTime = 0.0;
-      simStep = 0;
-      totalCollisions = 0;
-      document.getElementById('collision-counter').textContent = '0 Collisions';
-      document.getElementById('collision-counter').className = 'text-emerald-400 font-bold font-mono';
+      const p0 = getReferencePose(0.0, isReplanned);
+      veh.x = 0.0;
+      veh.y = p0.yRef;
+      veh.yaw = p0.yawRef;
+      veh.v = 0.0;
+      veh.steer = 0.0;
+      veh.accel = 0.0;
+      veh.trail = [];
 
-      const ref0 = getReferencePose(0, isReplanned);
-      veh = {
-        x: 0.0,
-        y: 0.0,
-        yaw: ref0.yawRef,
-        v: 0.0,
-        steer: 0.0,
-        accel: 0.0,
-        trail: []
-      };
+      trailLine.geometry.setDrawRange(0, 0);
 
-      trailGeom.setFromPoints([]);
-      buildTrajectoryRibbons();
-      document.getElementById('hud-status').textContent = 'RUNNING';
-      document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
-      document.getElementById('play-text').textContent = 'Pause';
-      document.getElementById('play-icon').textContent = '⏸';
-      isRunning = true;
+      camLookTarget = new THREE.Vector3(veh.x + 3.8, 0.70, -veh.y);
+      if (activeCamera === 'chase') {
+        camera.position.set(-5.8, 3.6, 0);
+        camera.lookAt(camLookTarget);
+      }
     }
 
-    // --- 14. Event Listeners ---
+    // --- 16. Event Listeners & UI Binding ---
     document.getElementById('btn-play').addEventListener('click', () => {
       isRunning = !isRunning;
-      document.getElementById('play-text').textContent = isRunning ? 'Pause' : 'Resume';
       document.getElementById('play-icon').textContent = isRunning ? '⏸' : '▶';
+      document.getElementById('play-text').textContent = isRunning ? 'Pause' : 'Resume';
       document.getElementById('hud-status').textContent = isRunning ? 'RUNNING' : 'PAUSED';
       document.getElementById('hud-status').className = isRunning ? 'font-bold text-emerald-400 text-sm' : 'font-bold text-amber-400 text-sm';
     });
 
     document.getElementById('btn-reset').addEventListener('click', () => {
-      resetSimulation();
-      showToast(autoRandomizeOnReset ? `🎲 SIMULATION RESET → NEW RANDOM PATH (Seed #${currentSeed})` : 'SIMULATION RESET TO ORIGIN');
+      resetSimulation(false);
+      showToast('SIMULATION RESET & PATH RE-EVALUATED');
     });
 
-    // Procedural Random Path Button
     document.getElementById('btn-random-path').addEventListener('click', () => {
+      generateRandomPath();
       resetSimulation(true);
-      showToast(`🎲 NEW UNPREDICTABLE PATH GENERATED (Seed #${currentSeed})`);
+      showToast(`NEW PROCEDURAL PATH GENERATED (#${currentSeed})`);
     });
 
-    // Auto-Randomize on Reset Checkbox
     document.getElementById('chk-auto-random').addEventListener('change', (e) => {
       autoRandomizeOnReset = e.target.checked;
-      showToast(autoRandomizeOnReset ? 'AUTO-RANDOMIZE ON RESET: ENABLED' : 'FIXED SEED MODE: ACTIVE');
     });
 
-    // Drop Surprise Block Ahead
     document.getElementById('btn-surprise-hazard').addEventListener('click', () => {
-      const dropX = Math.min(destinations[destId].x - 3.0, veh.x + 6.0);
-      const currP = getReferencePose(dropX, false);
-      const newObs = {
+      const dropX = veh.x + 6.0 + Math.random() * 4.0;
+      const refP = getReferencePose(dropX, false);
+      const dodgeDir = (refP.yRef >= 0.0) ? -1 : 1;
+      const targetDetourY = refP.yRef + dodgeDir * 1.85;
+      const detourAmp = targetDetourY - refP.yRef;
+
+      obstacles.push({
         id: 'surprise_' + Date.now(),
         x: parseFloat(dropX.toFixed(1)),
-        y: parseFloat(currP.yRef.toFixed(2)),
+        y: parseFloat(refP.yRef.toFixed(2)),
+        dodgeDir: dodgeDir,
+        detourAmp: parseFloat(detourAmp.toFixed(3)),
         radius: 0.65,
-        type: 'crates',
-        label: 'SURPRISE BLOCK'
-      };
-      obstacles.push(newObs);
+        type: 'spill',
+        label: 'SURPRISE HAZARD'
+      });
       isReplanned = true;
       renderAllStaticObstacles();
       buildTrajectoryRibbons();
       document.getElementById('obs-count-badge').textContent = `${obstacles.length} Obstacles`;
-      showToast(`⚠️ SURPRISE OBSTACLE DROPPED AT ${dropX.toFixed(1)}m → DYNAMIC REPLAN!`);
+      showToast(`⚠️ SURPRISE HAZARD DEPLOYED @ ${dropX.toFixed(1)}m`);
+    });
+
+    // Obstacle Density Selector (4, 8, 12)
+    document.querySelectorAll('.density-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.density-btn').forEach(b => {
+          b.className = 'density-btn py-1 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white';
+        });
+        btn.className = 'density-btn py-1 rounded border border-amber-500/50 bg-amber-600/30 text-amber-300 font-bold';
+        obstacleDensity = parseInt(btn.dataset.density);
+        generateRandomObstacles();
+        resetSimulation(true);
+        showToast(`OBSTACLE FIELD SET TO ${obstacleDensity} DIVERSE HAZARDS`);
+      });
     });
 
     // Camera Switcher
@@ -1462,21 +1958,45 @@
         });
         btn.className = 'cam-btn px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold transition-all';
         activeCamera = btn.dataset.cam;
-        if (activeCamera === 'orbit') {
-          controls.target.set(veh.x + 2, 0.5, -veh.y);
-          camera.position.set(veh.x - 7, 6, -veh.y + 8);
-        }
+        if (controls) controls.enabled = (activeCamera === 'orbit');
+        showToast(`CAMERA: ${activeCamera.toUpperCase()} VIEW`);
       });
     });
 
-    // Controller Toggle (Proof 3)
+    // Toggle Clean Cinema Mode
+    document.getElementById('btn-toggle-ui').addEventListener('click', () => {
+      isUIVisible = !isUIVisible;
+      const sidebar = document.getElementById('sidebar-controls');
+      const legend = document.getElementById('panel-legend');
+      const gauges = document.getElementById('panel-gauges');
+
+      if (isUIVisible) {
+        sidebar.className = 'expanded-sidebar absolute top-20 left-3 z-10 glass-panel rounded-xl p-3 shadow-xl space-y-3 w-76 pointer-events-auto max-h-[calc(100vh-6rem)] overflow-y-auto';
+        legend.style.opacity = '1';
+        legend.style.pointerEvents = 'auto';
+        gauges.style.opacity = '1';
+        gauges.style.pointerEvents = 'auto';
+        document.getElementById('ui-toggle-text').textContent = 'Cinema';
+        document.getElementById('ui-toggle-icon').textContent = '👁️';
+      } else {
+        sidebar.className = 'collapsed-sidebar absolute top-20 left-3 z-10 glass-panel rounded-xl p-3 shadow-xl space-y-3 w-76 pointer-events-none max-h-[calc(100vh-6rem)] overflow-y-auto';
+        legend.style.opacity = '0';
+        legend.style.pointerEvents = 'none';
+        gauges.style.opacity = '0';
+        gauges.style.pointerEvents = 'none';
+        document.getElementById('ui-toggle-text').textContent = 'Controls';
+        document.getElementById('ui-toggle-icon').textContent = '⚙️';
+      }
+    });
+
+    // Controller Selector (Proof 3)
     document.getElementById('btn-ctrl-mpc').addEventListener('click', () => {
       controller = 'MPC';
       document.getElementById('btn-ctrl-mpc').className = 'py-1 rounded font-bold transition-all bg-blue-600 text-white shadow';
       document.getElementById('btn-ctrl-stanley').className = 'py-1 rounded font-medium transition-all text-slate-400 hover:text-white';
       document.getElementById('hud-ctrl-mode').textContent = 'STEADYPATH MPC';
       document.getElementById('hud-ctrl-mode').className = 'font-bold text-blue-400 text-sm';
-      document.getElementById('ctrl-perf-label').textContent = '97% Accuracy';
+      document.getElementById('ctrl-perf-label').textContent = '98% Accuracy';
       showToast('SWITCHED TO STEADYPATH MPC (PREDICTIVE PREVIEW)');
     });
 
@@ -1507,12 +2027,18 @@
     document.getElementById('btn-spawn-ahead').addEventListener('click', () => {
       const dropX = Math.min(destinations[destId].x - 3.0, veh.x + 7.5);
       const refP = getReferencePose(dropX, false);
+      const dodgeDir = (refP.yRef >= 0.0) ? -1 : 1;
+      const targetDetourY = refP.yRef + dodgeDir * 1.85;
+      const detourAmp = targetDetourY - refP.yRef;
+
       const newObs = {
         id: 'dyn_' + Date.now(),
         x: parseFloat(dropX.toFixed(1)),
         y: parseFloat(refP.yRef.toFixed(2)),
-        radius: 0.6,
-        type: 'crates',
+        dodgeDir: dodgeDir,
+        detourAmp: parseFloat(detourAmp.toFixed(3)),
+        radius: 0.65,
+        type: 'pallet',
         label: 'BLOCKAGE'
       };
       obstacles.push(newObs);
@@ -1523,23 +2049,23 @@
       showToast(`CORRIDOR BLOCKED @ ${dropX.toFixed(1)}m → EVASIVE REPLAN ACTIVE`);
     });
 
-    // Toggle 4 Crossing Forklifts
+    // Toggle Crossing Traffic
     document.getElementById('btn-toggle-forklifts').addEventListener('click', () => {
       forkliftsActive = !forkliftsActive;
       forkliftMeshes.forEach(m => m.visible = forkliftsActive);
-      document.getElementById('btn-forklifts-label').textContent = forkliftsActive ? '4 Crossing Forklifts: ON' : 'Crossing Forklifts: OFF';
-      showToast(forkliftsActive ? '4 CROSSING FORKLIFTS ACTIVATED' : 'FORKLIFTS CLEARED');
+      document.getElementById('btn-forklifts-label').textContent = forkliftsActive ? 'Crossing Traffic: ON (4 Units)' : 'Crossing Traffic: OFF';
+      showToast(forkliftsActive ? 'CROSSING LOGISTICS TRAFFIC ACTIVATED' : 'CROSSING TRAFFIC CLEARED');
     });
 
-    // Toggle Multi-Obstacle Course
+    // Toggle Obstacle Slalom Course
     document.getElementById('btn-toggle-course').addEventListener('click', () => {
       courseActive = !courseActive;
       if (courseActive) {
         generateRandomObstacles();
-        document.getElementById('btn-course-label').textContent = 'Obstacle Course: ACTIVE';
+        document.getElementById('btn-course-label').textContent = 'Obstacle Slalom: ACTIVE';
       } else {
         obstacles = [];
-        document.getElementById('btn-course-label').textContent = 'Obstacle Course: OFF';
+        document.getElementById('btn-course-label').textContent = 'Obstacle Slalom: OFF';
       }
       isReplanned = (obstacles.length > 0);
       renderAllStaticObstacles();
