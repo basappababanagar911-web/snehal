@@ -40,9 +40,9 @@
           <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
             <span class="text-amber-400">SteadyPath</span> 3D Warehouse Simulation
           </h1>
-          <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">75m Long Path</span>
+          <span id="route-type-badge" class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">🎲 Procedural Random Route</span>
         </div>
-        <p class="text-[11px] text-slate-400">Multi-Obstacle Dynamic Replanning &bull; 4 Crossing Forklifts &bull; Snehal Analytics</p>
+        <p class="text-[11px] text-slate-400">Dynamic Unpredictable Curves &bull; 4 Crossing Forklifts &bull; Real-Time Replanning</p>
       </div>
     </div>
 
@@ -96,6 +96,28 @@
         <button class="speed-btn px-2 py-1 bg-blue-600/30 text-blue-400 font-bold" data-speed="1">1x</button>
         <button class="speed-btn px-2 py-1 hover:bg-slate-800 text-slate-300" data-speed="2">2x</button>
         <button class="speed-btn px-2 py-1 hover:bg-slate-800 text-slate-300" data-speed="4">4x</button>
+      </div>
+    </div>
+
+    <!-- Procedural Random Route Generator -->
+    <div class="p-2.5 bg-gradient-to-r from-emerald-950/70 to-slate-900/90 rounded-xl border border-emerald-500/40 shadow-inner">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-[10px] font-extrabold uppercase text-emerald-400 flex items-center gap-1">
+          <span>🎲</span> Procedural Route
+        </span>
+        <span id="path-seed-label" class="text-[10px] font-mono text-emerald-300 font-bold">Seed #48291</span>
+      </div>
+      <button id="btn-random-path" class="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95">
+        <span>🎲</span> <span>Generate New Random Path</span>
+      </button>
+      <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800 text-[11px]">
+        <label class="flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white select-none">
+          <input type="checkbox" id="chk-auto-random" checked class="rounded border-slate-700 text-emerald-500 focus:ring-0">
+          <span>Random on Reset</span>
+        </label>
+        <button id="btn-surprise-hazard" class="text-[10px] text-amber-400 hover:text-amber-300 font-mono font-bold underline">
+          + Surprise Block
+        </button>
       </div>
     </div>
 
@@ -239,6 +261,7 @@
     let controller = 'MPC'; // 'MPC' or 'STANLEY'
     let destId = 4; // Default to Longest Route: Bay 4 (75m!)
     let activeCamera = 'chase'; // 'chase', 'orbit', 'top', 'bumper'
+    let autoRandomizeOnReset = true;
 
     let simTime = 0.0;
     let simStep = 0;
@@ -250,7 +273,7 @@
     let veh = {
       x: 0.0,
       y: 0.0,
-      yaw: 0.40,
+      yaw: 0.0,
       v: 0.0,
       steer: 0.0,
       accel: 0.0,
@@ -259,63 +282,228 @@
 
     // Extended Destinations spanning across 75 meters
     const destinations = {
-      1: { name: "Bay 1 (Receiving)", x: 25.0, y: 1.8 },
-      2: { name: "Bay 2 (Inspection)", x: 42.0, y: -1.6 },
-      3: { name: "Bay 3 (Sorting Hub)", x: 58.0, y: 1.4 },
-      4: { name: "Bay 4 (Deep Logistics)", x: 75.0, y: -0.8 }
+      1: { name: "Bay 1 (Receiving)", x: 25.0, y: 0.0 },
+      2: { name: "Bay 2 (Inspection)", x: 42.0, y: 0.0 },
+      3: { name: "Bay 3 (Sorting Hub)", x: 58.0, y: 0.0 },
+      4: { name: "Bay 4 (Deep Logistics)", x: 75.0, y: 0.0 }
     };
 
-    // Obstacles: Pre-populated 4 Static Obstacles along the 75m corridor
-    let courseActive = true;
-    let staticObstaclesPreset = [
-      { id: 'obs1', x: 13.5, y: 0.5, radius: 0.6, type: 'pallet', label: 'CARGO PALLET' },
-      { id: 'obs2', x: 29.0, y: -0.6, radius: 0.55, type: 'drums', label: 'HAZARD DRUMS' },
-      { id: 'obs3', x: 48.0, y: 0.6, radius: 0.6, type: 'crates', label: 'FALLEN CRATES' },
-      { id: 'obs4', x: 65.0, y: -0.5, radius: 0.55, type: 'barrier', label: 'MAINTENANCE BARRIER' }
-    ];
-    let obstacles = [...staticObstaclesPreset];
+    // Random Path Generator State & Seed
+    let randomPathParams = null;
+    let currentSeed = 10001;
 
-    // 4 Dynamic Crossing Forklifts traversing along the 75m route!
+    // Obstacles & 3D Containers
+    let courseActive = true;
+    let obstacles = [];
+    const staticObstacleMeshes = [];
+
+    // Forklifts & 3D Containers
     let forkliftsActive = true;
     let forklifts = [
-      { id: 1, x: 18.0, y: -3.2, vy: 0.35, radius: 0.55, min_y: -3.4, max_y: 3.4 },
-      { id: 2, x: 35.0, y: 3.2, vy: -0.40, radius: 0.55, min_y: -3.4, max_y: 3.4 },
-      { id: 3, x: 53.0, y: -3.2, vy: 0.32, radius: 0.55, min_y: -3.4, max_y: 3.4 },
-      { id: 4, x: 69.0, y: 3.2, vy: -0.38, radius: 0.55, min_y: -3.4, max_y: 3.4 }
+      { id: 1, x: 18.0, y: -2.5, vy: 0.35, radius: 0.55, min_y: -3.4, max_y: 3.4 },
+      { id: 2, x: 35.0, y: 2.5, vy: -0.40, radius: 0.55, min_y: -3.4, max_y: 3.4 },
+      { id: 3, x: 53.0, y: -2.0, vy: 0.32, radius: 0.55, min_y: -3.4, max_y: 3.4 },
+      { id: 4, x: 69.0, y: 2.8, vy: -0.38, radius: 0.55, min_y: -3.4, max_y: 3.4 }
     ];
+    const forkliftMeshes = [];
+    const bayMarkers = {};
 
     let isReplanned = true;
-    let replanCount = 4;
+    let replanCount = 0;
     let totalCollisions = 0;
 
-    // --- 2. Mathematical Reference Trajectory & Multi-Obstacle Replanning ---
+    // Seedable Procedural Random Number Generator
+    function createRNG(seed) {
+      let s = seed;
+      return function() {
+        s = (s * 9301 + 49297) % 233280;
+        return s / 233280;
+      };
+    }
+
+    // --- 2. Procedural Unpredictable Path Generation ---
+    function generateRandomPath(customSeed) {
+      currentSeed = customSeed || (Math.floor(Math.random() * 90000) + 10000);
+      const rnd = createRNG(currentSeed);
+
+      // Generate 5 harmonic frequencies to ensure an unpredictable, non-repetitive path profile
+      // Mix of long sweep turns (wavelength ~25m to ~75m) and local chicanes
+      const harmonics = [];
+      const numHarmonics = 5;
+      for (let k = 0; k < numHarmonics; k++) {
+        const freq = 0.08 + rnd() * 0.24;
+        const amp = 0.3 + rnd() * 0.7;
+        const phase = rnd() * Math.PI * 2;
+        harmonics.push({ freq, amp, phase });
+      }
+
+      // Compute y(0) to center trajectory origin cleanly at y = 0
+      let rawY0 = 0;
+      for (const h of harmonics) rawY0 += h.amp * Math.sin(h.phase);
+
+      // Measure max deviation along 0m to 80m to scale securely within warehouse aisles (|y| <= 1.95m)
+      let maxDev = 0.001;
+      for (let x = 0; x <= 80; x += 0.5) {
+        let val = 0;
+        for (const h of harmonics) val += h.amp * Math.sin(x * h.freq + h.phase);
+        const d = Math.abs(val - rawY0);
+        if (d > maxDev) maxDev = d;
+      }
+      const scale = 1.95 / Math.max(1.1, maxDev);
+
+      randomPathParams = {
+        seed: currentSeed,
+        harmonics,
+        rawY0,
+        scale
+      };
+
+      // Randomize static obstacles adapted to this unique trajectory
+      if (courseActive) {
+        generateRandomObstacles(rnd);
+      }
+
+      // Randomize crossing forklift aisle positions and crossing speeds
+      randomizeForklifts(rnd);
+
+      // Synchronize 3D Bay positions with the new random path
+      updateDestinationsToPath();
+
+      // Update UI seed label
+      const seedBadge = document.getElementById('path-seed-label');
+      if (seedBadge) seedBadge.textContent = `Seed #${currentSeed}`;
+    }
+
+    function generateRandomObstacles(rndFn) {
+      const rnd = rndFn || Math.random;
+      obstacles = [];
+      const types = ['pallet', 'drums', 'crates', 'barrier'];
+      const labels = ['CARGO PALLET', 'HAZARD DRUMS', 'FALLEN CRATES', 'MAINTENANCE BARRIER'];
+
+      // Place 4 to 6 random obstacles along the 75m corridor
+      const numObs = 4 + Math.floor(rnd() * 3);
+      let curX = 11.0 + rnd() * 4.0;
+
+      for (let i = 0; i < numObs; i++) {
+        if (curX > 71.0) break;
+
+        // Evaluate nominal path at curX
+        let nominalY = 0;
+        for (const h of randomPathParams.harmonics) {
+          nominalY += h.amp * Math.sin(curX * h.freq + h.phase);
+        }
+        nominalY = (nominalY - randomPathParams.rawY0) * randomPathParams.scale;
+
+        // Place obstacle directly obstructing the lane (offset: -0.25m to +0.25m)
+        const lateralShift = (rnd() - 0.5) * 0.5;
+        let obsY = nominalY + lateralShift;
+        obsY = Math.max(-2.0, Math.min(2.0, obsY));
+
+        const tIdx = Math.floor(rnd() * types.length);
+        obstacles.push({
+          id: 'rnd_obs_' + i + '_' + Math.floor(rnd() * 10000),
+          x: parseFloat(curX.toFixed(1)),
+          y: parseFloat(obsY.toFixed(2)),
+          radius: 0.55 + rnd() * 0.1,
+          type: types[tIdx],
+          label: labels[tIdx]
+        });
+
+        curX += 9.0 + rnd() * 7.0; // Space next obstacle 9m - 16m away
+      }
+
+      if (typeof renderAllStaticObstacles === 'function') {
+        renderAllStaticObstacles();
+      }
+      const badge = document.getElementById('obs-count-badge');
+      if (badge) badge.textContent = `${obstacles.length} Obstacles`;
+    }
+
+    function randomizeForklifts(rndFn) {
+      const rnd = rndFn || Math.random;
+      const baseXs = [18.0, 35.0, 53.0, 69.0];
+      forklifts.forEach((fl, idx) => {
+        fl.x = parseFloat((baseXs[idx] + (rnd() - 0.5) * 4.0).toFixed(1));
+        fl.y = parseFloat(((rnd() - 0.5) * 6.0).toFixed(2));
+        const speed = 0.28 + rnd() * 0.25;
+        const dir = rnd() > 0.5 ? 1 : -1;
+        fl.vy = parseFloat((speed * dir).toFixed(3));
+      });
+
+      if (forkliftMeshes && forkliftMeshes.length > 0) {
+        forklifts.forEach((fl, i) => {
+          if (forkliftMeshes[i]) {
+            forkliftMeshes[i].position.set(fl.x, 0, -fl.y);
+          }
+        });
+      }
+    }
+
+    function updateDestinationsToPath() {
+      for (const [id, d] of Object.entries(destinations)) {
+        let destY = 0;
+        for (const h of randomPathParams.harmonics) {
+          destY += h.amp * Math.sin(d.x * h.freq + h.phase);
+        }
+        d.y = parseFloat(((destY - randomPathParams.rawY0) * randomPathParams.scale).toFixed(2));
+        d.y = Math.max(-2.0, Math.min(2.0, d.y));
+
+        if (bayMarkers && bayMarkers[id]) {
+          bayMarkers[id].position.set(d.x, 0, -d.y);
+        }
+      }
+    }
+
+    // Mathematical Reference Trajectory & Multi-Obstacle Replanning
     function getReferencePose(x, replanActive) {
-      // Extended warehouse corridor sinusoidal wave (wavelength = 28m)
-      const kw = (2 * Math.PI) / 28.0;
-      let yRef = 1.8 * Math.sin(x * kw);
-      let dydx = 1.8 * kw * Math.cos(x * kw);
-      let d2ydx2 = -1.8 * kw * kw * Math.sin(x * kw);
+      if (!randomPathParams) {
+        generateRandomPath();
+      }
+
+      let yRef = 0;
+      let dydx = 0;
+      let d2ydx2 = 0;
+
+      for (const h of randomPathParams.harmonics) {
+        const angle = x * h.freq + h.phase;
+        yRef += h.amp * Math.sin(angle);
+        dydx += h.amp * h.freq * Math.cos(angle);
+        d2ydx2 += -h.amp * h.freq * h.freq * Math.sin(angle);
+      }
+
+      yRef = (yRef - randomPathParams.rawY0) * randomPathParams.scale;
+      dydx = dydx * randomPathParams.scale;
+      d2ydx2 = d2ydx2 * randomPathParams.scale;
 
       // Multi-Obstacle Gaussian Bypass Superposition
       if (replanActive && obstacles.length > 0) {
         for (const obs of obstacles) {
           const dx = x - obs.x;
-          if (Math.abs(dx) < 6.0) {
-            // Evasive direction: dodge towards opposite side of the aisle
-            const side = (obs.y >= 0) ? -1 : 1;
-            const amp = 2.3 * side;
+          if (Math.abs(dx) < 6.5) {
+            // Evasive direction: dodge towards whichever side has more clearance
+            let side = (obs.y >= yRef) ? -1 : 1;
+            if (side === -1 && (yRef - 1.8 < -2.1)) side = 1;
+            if (side === 1 && (yRef + 1.8 > 2.1)) side = -1;
+
+            const amp = 1.95 * side;
             const detour = amp * Math.exp(-Math.pow(dx, 2) / 8.5);
             const dDetour = -detour * (2.0 * dx / 8.5);
+            const d2Detour = detour * (4.0 * dx * dx / 72.25 - 2.0 / 8.5);
             yRef += detour;
             dydx += dDetour;
+            d2ydx2 += d2Detour;
           }
         }
       }
 
+      yRef = Math.max(-2.2, Math.min(2.2, yRef));
       const yawRef = Math.atan2(dydx, 1.0);
       const curvature = d2ydx2 / Math.pow(1.0 + dydx * dydx, 1.5);
       return { yRef, yawRef, curvature };
     }
+
+    // Initialize initial random path
+    generateRandomPath();
 
     // --- 3. Three.js 3D Scene Setup ---
     const container = document.getElementById('canvas-container');
@@ -450,7 +638,6 @@
     }
 
     // --- 7. Loading Bays (3D Visual Docking Platforms up to 75m) ---
-    const bayMarkers = {};
     for (const [id, d] of Object.entries(destinations)) {
       const bayGroup = new THREE.Group();
       // Glowing floor ring
@@ -564,9 +751,6 @@
     scene.add(agvGroup);
 
     // --- 9. Multiple 3D Obstacles Setup ---
-    // A. 3D Static Obstacles Meshes Container
-    const staticObstacleMeshes = [];
-
     function spawn3DStaticObstacle(obs) {
       const group = new THREE.Group();
 
@@ -610,14 +794,18 @@
     }
 
     function renderAllStaticObstacles() {
-      staticObstacleMeshes.forEach(m => scene.remove(m));
+      staticObstacleMeshes.forEach(m => {
+        scene.remove(m);
+        m.traverse(child => {
+          if (child.geometry) child.geometry.dispose();
+        });
+      });
       staticObstacleMeshes.length = 0;
       obstacles.forEach(spawn3DStaticObstacle);
     }
     renderAllStaticObstacles();
 
     // B. 4 Crossing Dynamic Forklifts Meshes
-    const forkliftMeshes = [];
     forklifts.forEach((fl, idx) => {
       const flGroup = new THREE.Group();
       // Body
@@ -650,10 +838,13 @@
     let horizonLine = null;
 
     function buildTrajectoryRibbons() {
-      if (refPathLine) scene.remove(refPathLine);
+      if (refPathLine) {
+        scene.remove(refPathLine);
+        if (refPathLine.geometry) refPathLine.geometry.dispose();
+      }
       const points = [];
       const target = destinations[destId];
-      for (let sx = 0; sx <= target.x; sx += 0.25) {
+      for (let sx = 0; sx <= target.x; sx += 0.2) {
         const p = getReferencePose(sx, isReplanned);
         points.push(new THREE.Vector3(sx, 0.04, -p.yRef));
       }
@@ -914,7 +1105,11 @@
       setTimeout(() => { toast.style.opacity = '0'; }, 2500);
     }
 
-    function resetSimulation() {
+    function resetSimulation(forceNewRandom = false) {
+      if (forceNewRandom || autoRandomizeOnReset) {
+        generateRandomPath();
+      }
+
       simTime = 0.0;
       simStep = 0;
       totalCollisions = 0;
@@ -950,7 +1145,42 @@
       document.getElementById('hud-status').className = isRunning ? 'font-bold text-emerald-400 text-sm' : 'font-bold text-amber-400 text-sm';
     });
 
-    document.getElementById('btn-reset').addEventListener('click', resetSimulation);
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      resetSimulation();
+      showToast(autoRandomizeOnReset ? `🎲 SIMULATION RESET → NEW RANDOM PATH (Seed #${currentSeed})` : 'SIMULATION RESET TO ORIGIN');
+    });
+
+    // Procedural Random Path Button
+    document.getElementById('btn-random-path').addEventListener('click', () => {
+      resetSimulation(true);
+      showToast(`🎲 NEW UNPREDICTABLE PATH GENERATED (Seed #${currentSeed})`);
+    });
+
+    // Auto-Randomize on Reset Checkbox
+    document.getElementById('chk-auto-random').addEventListener('change', (e) => {
+      autoRandomizeOnReset = e.target.checked;
+      showToast(autoRandomizeOnReset ? 'AUTO-RANDOMIZE ON RESET: ENABLED' : 'FIXED SEED MODE: ACTIVE');
+    });
+
+    // Drop Surprise Block Ahead
+    document.getElementById('btn-surprise-hazard').addEventListener('click', () => {
+      const dropX = Math.min(destinations[destId].x - 3.0, veh.x + 6.0);
+      const currP = getReferencePose(dropX, false);
+      const newObs = {
+        id: 'surprise_' + Date.now(),
+        x: parseFloat(dropX.toFixed(1)),
+        y: parseFloat(currP.yRef.toFixed(2)),
+        radius: 0.65,
+        type: 'crates',
+        label: 'SURPRISE BLOCK'
+      };
+      obstacles.push(newObs);
+      isReplanned = true;
+      renderAllStaticObstacles();
+      buildTrajectoryRibbons();
+      document.getElementById('obs-count-badge').textContent = `${obstacles.length} Obstacles`;
+      showToast(`⚠️ SURPRISE OBSTACLE DROPPED AT ${dropX.toFixed(1)}m → DYNAMIC REPLAN!`);
+    });
 
     // Camera Switcher
     document.querySelectorAll('.cam-btn').forEach(btn => {
@@ -1004,17 +1234,17 @@
     // Spawn Obstacle Ahead
     document.getElementById('btn-spawn-ahead').addEventListener('click', () => {
       const dropX = Math.min(destinations[destId].x - 3.0, veh.x + 7.5);
+      const refP = getReferencePose(dropX, false);
       const newObs = {
         id: 'dyn_' + Date.now(),
-        x: dropX,
-        y: (Math.random() > 0.5 ? 0.5 : -0.5),
+        x: parseFloat(dropX.toFixed(1)),
+        y: parseFloat(refP.yRef.toFixed(2)),
         radius: 0.6,
         type: 'crates',
         label: 'BLOCKAGE'
       };
       obstacles.push(newObs);
       isReplanned = true;
-      replanCount++;
       renderAllStaticObstacles();
       buildTrajectoryRibbons();
       document.getElementById('obs-count-badge').textContent = `${obstacles.length} Obstacles`;
@@ -1033,7 +1263,7 @@
     document.getElementById('btn-toggle-course').addEventListener('click', () => {
       courseActive = !courseActive;
       if (courseActive) {
-        obstacles = [...staticObstaclesPreset];
+        generateRandomObstacles();
         document.getElementById('btn-course-label').textContent = 'Obstacle Course: ACTIVE';
       } else {
         obstacles = [];
@@ -1043,7 +1273,7 @@
       renderAllStaticObstacles();
       buildTrajectoryRibbons();
       document.getElementById('obs-count-badge').textContent = `${obstacles.length} Obstacles`;
-      showToast(courseActive ? 'MULTI-OBSTACLE COURSE RESTORED (4 BLOCKS)' : 'ALL STATIC OBSTACLES CLEARED');
+      showToast(courseActive ? 'RANDOM OBSTACLE COURSE RESTORED' : 'ALL STATIC OBSTACLES CLEARED');
     });
 
     // Speed Multipliers
@@ -1064,7 +1294,7 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    resetSimulation();
+    resetSimulation(false);
   </script>
 </body>
 </html>
