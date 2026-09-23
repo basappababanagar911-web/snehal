@@ -553,10 +553,14 @@
     // --- 3. Three.js 3D Scene Setup ---
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f172a);
-    scene.fog = null; // No fog wall - 100% infinite clear visibility across the warehouse
+    scene.background = new THREE.Color(0x182234); // Clean modern industrial warehouse atmosphere (Zero black void)
+    scene.fog = null; // 100% infinite crisp clarity
 
-    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 250);
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 300);
+    camera.position.set(-6.2, 3.2, 0);
+    camera.lookAt(4.5, 0.75, 0);
+    let camLookTarget = new THREE.Vector3(4.5, 0.75, 0);
+
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -571,30 +575,21 @@
       controls.dampingFactor = 0.05;
       controls.maxPolarAngle = Math.PI / 2 - 0.02;
       controls.minDistance = 2.0;
-      controls.maxDistance = 85.0;
+      controls.maxDistance = 90.0;
     }
 
-    // --- 4. 3D Lighting (Bright, High-Visibility Warehouse) ---
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.35);
+    // --- 4. 3D Lighting (Bright, High-Visibility Industrial Warehouse) ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.45);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.9);
-    dirLight.position.set(40, 42, 22);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 115;
-    dirLight.shadow.camera.left = -50;
-    dirLight.shadow.camera.right = 50;
-    dirLight.shadow.camera.top = 22;
-    dirLight.shadow.camera.bottom = -22;
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+    dirLight.position.set(45, 45, 15);
     scene.add(dirLight);
 
-    // Overhead high-bay daylight point lights along the entire 80m corridor
-    for (let xPos = 0; xPos <= 80; xPos += 8) {
-      const highBayLight = new THREE.PointLight(0xffffff, 1.25, 22);
-      highBayLight.position.set(xPos, 8.5, 0);
+    // Overhead high-bay daylight point lights along the entire 100m corridor
+    for (let xPos = -10; xPos <= 92; xPos += 8) {
+      const highBayLight = new THREE.PointLight(0xffffff, 1.15, 26);
+      highBayLight.position.set(xPos, 9.2, 0);
       scene.add(highBayLight);
 
       // Light fixture visual
@@ -602,38 +597,128 @@
         new THREE.CylinderGeometry(0.35, 0.55, 0.22, 16),
         new THREE.MeshBasicMaterial({ color: 0x93c5fd })
       );
-      fixture.position.set(xPos, 8.5, 0);
+      fixture.position.set(xPos, 9.2, 0);
       scene.add(fixture);
     }
 
-    // --- 5. Extended Warehouse Floor (95m x 24m) & Markings ---
-    const floorGeo = new THREE.PlaneGeometry(95, 24);
+    // --- 5. Expansive Industrial Warehouse Floor (140m x 44m) & Architectural Walls ---
+    const floorGeo = new THREE.PlaneGeometry(140, 44);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.45,
+      color: 0x222c3c,
+      roughness: 0.38,
       metalness: 0.25
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.position.set(38, 0, 0);
+    floor.position.set(42, 0, 0);
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // High-contrast floor grid
-    const gridHelper = new THREE.GridHelper(95, 95, 0x475569, 0x334155);
-    gridHelper.position.set(38, 0.01, 0);
+    // High-contrast industrial floor grid
+    const gridHelper = new THREE.GridHelper(140, 70, 0x475569, 0x334155);
+    gridHelper.position.set(42, 0.01, 0);
     scene.add(gridHelper);
 
-    // Safety yellow floor hazard boundary stripes along the entire length
+    // Safety yellow floor hazard boundary stripes along the entire runway
     function createSafetyLine(x, y, len) {
-      const lineGeo = new THREE.PlaneGeometry(len, 0.16);
+      const lineGeo = new THREE.PlaneGeometry(len, 0.18);
       const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
       const line = new THREE.Mesh(lineGeo, lineMat);
       line.position.set(x, 0.02, y);
       line.rotation.x = -Math.PI / 2;
       scene.add(line);
     }
-    createSafetyLine(38, 3.6, 92);
-    createSafetyLine(38, -3.6, 92);
+    createSafetyLine(42, 3.8, 120);
+    createSafetyLine(42, -3.8, 120);
+
+    // Architectural Perimeter Warehouse Walls (Enclosing facility - Eliminating the black wall!)
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.1 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 });
+
+    // A. Far Terminal Dispatch Bay Wall at x = 95m (End of Warehouse)
+    const farWallGroup = new THREE.Group();
+    const farWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 12, 44), wallMat);
+    farWall.position.set(95, 6, 0);
+    farWallGroup.add(farWall);
+
+    // 3 Automated Logistics Roll-up Shutter Loading Dock Doors
+    [-11, 0, 11].forEach((dockZ) => {
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 7.0, 7.0),
+        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.5 })
+      );
+      door.position.set(94.7, 3.5, dockZ);
+      farWallGroup.add(door);
+
+      // Safety chevron yellow/dark border frame
+      const frame = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 7.4, 7.6),
+        new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 })
+      );
+      frame.position.set(94.6, 3.7, dockZ);
+      farWallGroup.add(frame);
+
+      // Green Ready Dock Status Beacon
+      const dockLight = new THREE.PointLight(0x10b981, 1.2, 8);
+      dockLight.position.set(94.0, 7.8, dockZ);
+      farWallGroup.add(dockLight);
+      const dockBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.2, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 1.0 })
+      );
+      dockBeacon.position.set(94.2, 7.8, dockZ);
+      farWallGroup.add(dockBeacon);
+    });
+
+    // Illuminated Terminal Gantry Signboard
+    const signBoard = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 1.2, 24),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 })
+    );
+    signBoard.position.set(94.4, 9.8, 0);
+    farWallGroup.add(signBoard);
+
+    const signGlow = new THREE.Mesh(
+      new THREE.PlaneGeometry(23.6, 0.9),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    signGlow.position.set(94.28, 9.8, 0);
+    signGlow.rotation.y = -Math.PI / 2;
+    farWallGroup.add(signGlow);
+    scene.add(farWallGroup);
+
+    // B. Rear Intake Receiving Wall at x = -15m
+    const rearWall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 12, 44), wallMat);
+    rearWall.position.set(-15, 6, 0);
+    scene.add(rearWall);
+
+    // C. North Perimeter Wall at z = 20m & South Perimeter Wall at z = -20m
+    const northWall = new THREE.Mesh(new THREE.BoxGeometry(112, 12, 0.8), wallMat);
+    northWall.position.set(40, 6, 20);
+    scene.add(northWall);
+
+    const southWall = new THREE.Mesh(new THREE.BoxGeometry(112, 12, 0.8), wallMat);
+    southWall.position.set(40, 6, -20);
+    scene.add(southWall);
+
+    // High Clerestory Windows and Overhead Structural Steel Roof Trusses
+    for (let wx = -5; wx <= 85; wx += 15) {
+      const winGeo = new THREE.PlaneGeometry(8, 2.2);
+      const winMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd, transparent: true, opacity: 0.65 });
+
+      const winN = new THREE.Mesh(winGeo, winMat);
+      winN.position.set(wx, 8.5, 19.5);
+      scene.add(winN);
+
+      const winS = new THREE.Mesh(winGeo, winMat);
+      winS.position.set(wx, 8.5, -19.5);
+      winS.rotation.y = Math.PI;
+      scene.add(winS);
+
+      const trussGeo = new THREE.BoxGeometry(0.18, 0.6, 40);
+      const truss = new THREE.Mesh(trussGeo, trimMat);
+      truss.position.set(wx, 10.5, 0);
+      scene.add(truss);
+    }
 
     // --- 6. 3D Warehouse Storage Racks (Widened Corridor with Open Crossing Aisles) ---
     function createWarehouseRack(x, y) {
@@ -817,6 +902,18 @@
     lidarFan.rotation.z = -Math.PI / 2;
     lidarFan.position.set(1.42, 0.08, 0);
     agvGroup.add(lidarFan);
+
+    // LiDAR Animated Sweeping Laser Beam
+    const lidarScanRay = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.018, 0.018, 4.2, 8),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 })
+    );
+    lidarScanRay.rotation.z = Math.PI / 2;
+    lidarScanRay.position.set(2.1, 0.12, 0);
+    const lidarScanPivot = new THREE.Group();
+    lidarScanPivot.position.set(1.42, 0.12, 0);
+    lidarScanPivot.add(lidarScanRay);
+    agvGroup.add(lidarScanPivot);
 
     // Safety Strobe Beacon on Roof
     const beacon = new THREE.Mesh(
@@ -1167,12 +1264,19 @@
     }
 
     // --- 12. 3D Render & Camera Update Loop ---
+    const simClock = new THREE.Clock();
+    let simAccum = 0;
+    const fixedDt = 0.025; // 40 Hz physics for buttery-smooth motion across any monitor refresh rate
+
     function animate() {
       requestAnimationFrame(animate);
 
+      const frameDelta = Math.min(simClock.getDelta(), 0.1);
       if (isRunning) {
-        for (let i = 0; i < simSpeed; i++) {
+        simAccum += frameDelta * simSpeed;
+        while (simAccum >= fixedDt) {
           stepSimulation();
+          simAccum -= fixedDt;
         }
       }
 
@@ -1180,20 +1284,25 @@
       agvGroup.position.set(veh.x, 0, -veh.y);
       agvGroup.rotation.y = veh.yaw;
 
-      // Front wheel steering angle
+      // Front wheel steering angle (visibly steers into corners and evasions)
       frontSteerPivot.rotation.y = veh.steer;
 
-      // Wheel rotation
-      const wheelRoll = (veh.v * dt) / 0.16;
+      // Realistic rolling wheel animation based on distance travelled
+      const wheelRoll = (veh.v * fixedDt) / 0.16;
       rearLeftWheel.rotation.y += wheelRoll;
       rearRightWheel.rotation.y += wheelRoll;
       frontLeftWheel.rotation.y += wheelRoll;
       frontRightWheel.rotation.y += wheelRoll;
 
-      // Strobe beacon flash
-      beaconLight.intensity = 0.5 + Math.sin(Date.now() * 0.015) * 0.7;
+      // Animated 3D Sweeping LiDAR Laser Scanner (sweeps across +/-55 degrees)
+      if (typeof lidarScanPivot !== 'undefined') {
+        lidarScanPivot.rotation.y = Math.sin(Date.now() * 0.007) * 0.95;
+      }
 
-      // LiDAR safety fan color shifts if any obstacle is close
+      // Safety strobe beacon flash
+      beaconLight.intensity = 0.6 + Math.sin(Date.now() * 0.015) * 0.8;
+
+      // LiDAR safety alert color shifts if any obstacle is close
       let nearAlert = false;
       for (const obs of obstacles) {
         if (Math.hypot(veh.x - obs.x, veh.y - obs.y) < 4.0) nearAlert = true;
@@ -1203,7 +1312,11 @@
           if (Math.hypot(veh.x - fl.x, veh.y - fl.y) < 4.0) nearAlert = true;
         }
       }
-      lidarFan.material.color.setHex(nearAlert ? 0xef4444 : 0x38bdf8);
+      const alertColor = nearAlert ? 0xef4444 : 0x38bdf8;
+      lidarFan.material.color.setHex(alertColor);
+      if (typeof lidarScanRay !== 'undefined') {
+        lidarScanRay.material.color.setHex(alertColor);
+      }
 
       // Rotate floating obstacle hazard beacons for clear 3D visibility
       staticObstacleMeshes.forEach(m => {
@@ -1214,18 +1327,32 @@
         });
       });
 
-      // High-Clarity Camera Modes
+      // Ultra-Smooth Steadicam Camera Modes (High-Rated Cinema Quality)
       if (activeCamera === 'chase') {
-        const camDist = 6.5;
-        const camHeight = 3.6;
-        const camX = veh.x - camDist * Math.cos(veh.yaw);
-        const rawCamZ = -veh.y + camDist * Math.sin(veh.yaw) * 0.3;
-        const camZ = Math.max(-3.0, Math.min(3.0, rawCamZ)); // Strictly clamped to corridor center to avoid rack penetration
-        camera.position.lerp(new THREE.Vector3(camX, camHeight, camZ), 0.12);
-        camera.lookAt(veh.x + 3.8 * Math.cos(veh.yaw), 0.85, -veh.y - 3.8 * Math.sin(veh.yaw));
+        const camDist = 6.2;
+        const camHeight = 3.2;
+
+        // Smoothly damped heading prevents snappy camera whipping
+        const smoothYaw = veh.yaw * 0.35;
+        const targetCamX = veh.x - camDist * Math.cos(smoothYaw);
+        const rawCamZ = -veh.y + camDist * Math.sin(smoothYaw);
+        const clampedCamZ = Math.max(-2.6, Math.min(2.6, rawCamZ)); // Strictly held in open corridor center
+
+        camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, clampedCamZ), 0.09);
+
+        // Smooth focal point ahead of vehicle absorbs steering jitters
+        const desiredLookAt = new THREE.Vector3(
+          veh.x + 4.5 * Math.cos(smoothYaw),
+          0.75,
+          -veh.y - 4.5 * Math.sin(smoothYaw)
+        );
+        if (!camLookTarget) camLookTarget = desiredLookAt.clone();
+        else camLookTarget.lerp(desiredLookAt, 0.09);
+
+        camera.lookAt(camLookTarget);
       } else if (activeCamera === 'top') {
-        // High-contrast overhead camera tracking the 75m corridor
-        camera.position.lerp(new THREE.Vector3(veh.x + 4.5, 23.0, -veh.y), 0.12);
+        // High-contrast overhead tracking camera
+        camera.position.lerp(new THREE.Vector3(veh.x + 4.5, 24.0, -veh.y), 0.12);
         camera.lookAt(veh.x + 4.5, 0, -veh.y);
       } else if (activeCamera === 'bumper') {
         camera.position.set(veh.x + 1.45 * Math.cos(veh.yaw), 0.55, -veh.y - 1.45 * Math.sin(veh.yaw));
