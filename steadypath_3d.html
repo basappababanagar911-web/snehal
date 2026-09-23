@@ -83,8 +83,39 @@
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="orbit">🌐 Orbit 3D</button>
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="top">📐 Overhead</button>
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="bumper">🚗 Bumper</button>
-    </div>
   </header>
+
+  <!-- TOP RIGHT VISUAL LEGEND -->
+  <div class="absolute top-16 right-3 z-10 glass-panel rounded-xl p-3 shadow-2xl text-xs space-y-1.5 w-60 pointer-events-auto border border-slate-700/80">
+    <div class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider flex items-center justify-between border-b border-slate-700/70 pb-1.5">
+      <span>3D Visual Legend</span>
+      <span class="text-blue-400 font-mono text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20">HIGH CLARITY</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-4 h-2 rounded bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></div>
+      <span class="text-slate-200 font-medium">55cm Guidance Lane</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-4 h-1 rounded bg-emerald-400 shadow-[0_0_8px_#34d399]"></div>
+      <span class="text-slate-200 font-medium">MPC 14-Step Preview</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-4 h-1.5 rounded bg-blue-500"></div>
+      <span class="text-slate-200 font-medium">Driven Trail History</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]"></div>
+      <span class="text-slate-200 font-medium">Obstacle Hazard Beacon</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-3 h-2 rounded bg-yellow-400"></div>
+      <span class="text-slate-200 font-medium">Crossing Forklift Traffic</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+      <span class="text-slate-200 font-medium">Docking Platform Gantry</span>
+    </div>
+  </div>
 
   <!-- EVENT TOAST NOTIFICATION -->
   <div id="event-toast" class="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-amber-500/95 text-slate-950 font-bold text-xs shadow-2xl flex items-center gap-2 border border-amber-300 transition-opacity duration-300 opacity-0 pointer-events-none">
@@ -522,8 +553,8 @@
     // --- 3. Three.js 3D Scene Setup ---
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x090d16);
-    scene.fog = new THREE.FogExp2(0x090d16, 0.012);
+    scene.background = new THREE.Color(0x0f172a);
+    scene.fog = new THREE.Fog(0x0f172a, 40, 115);
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 180);
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -543,33 +574,33 @@
       controls.maxDistance = 85.0;
     }
 
-    // --- 4. 3D Lighting (Extended along 85m) ---
-    const ambientLight = new THREE.AmbientLight(0x64748b, 0.9);
+    // --- 4. 3D Lighting (Bright, High-Visibility Warehouse) ---
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.35);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.6);
-    dirLight.position.set(40, 35, 20);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.9);
+    dirLight.position.set(40, 42, 22);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 110;
+    dirLight.shadow.camera.far = 115;
     dirLight.shadow.camera.left = -50;
     dirLight.shadow.camera.right = 50;
-    dirLight.shadow.camera.top = 20;
-    dirLight.shadow.camera.bottom = -20;
+    dirLight.shadow.camera.top = 22;
+    dirLight.shadow.camera.bottom = -22;
     scene.add(dirLight);
 
-    // Warehouse overhead high-bay point lights along the entire 80m corridor
+    // Overhead high-bay daylight point lights along the entire 80m corridor
     for (let xPos = 0; xPos <= 80; xPos += 8) {
-      const highBayLight = new THREE.PointLight(0x38bdf8, 0.75, 18);
+      const highBayLight = new THREE.PointLight(0xffffff, 1.25, 22);
       highBayLight.position.set(xPos, 8.5, 0);
       scene.add(highBayLight);
 
       // Light fixture visual
       const fixture = new THREE.Mesh(
         new THREE.CylinderGeometry(0.35, 0.55, 0.22, 16),
-        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+        new THREE.MeshBasicMaterial({ color: 0x93c5fd })
       );
       fixture.position.set(xPos, 8.5, 0);
       scene.add(fixture);
@@ -578,23 +609,23 @@
     // --- 5. Extended Warehouse Floor (95m x 24m) & Markings ---
     const floorGeo = new THREE.PlaneGeometry(95, 24);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.65,
-      metalness: 0.2
+      color: 0x1e293b,
+      roughness: 0.45,
+      metalness: 0.25
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.position.set(38, 0, 0);
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Grid Floor Helper spanning 95 meters
-    const gridHelper = new THREE.GridHelper(95, 95, 0x334155, 0x1e293b);
+    // High-contrast floor grid
+    const gridHelper = new THREE.GridHelper(95, 95, 0x475569, 0x334155);
     gridHelper.position.set(38, 0.01, 0);
     scene.add(gridHelper);
 
     // Safety yellow floor hazard boundary stripes along the entire length
     function createSafetyLine(x, y, len) {
-      const lineGeo = new THREE.PlaneGeometry(len, 0.12);
+      const lineGeo = new THREE.PlaneGeometry(len, 0.16);
       const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
       const line = new THREE.Mesh(lineGeo, lineMat);
       line.position.set(x, 0.02, y);
@@ -657,20 +688,40 @@
     for (const [id, d] of Object.entries(destinations)) {
       const bayGroup = new THREE.Group();
       // Glowing floor ring
-      const ringGeo = new THREE.RingGeometry(0.8, 1.05, 32);
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide });
+      const ringGeo = new THREE.RingGeometry(1.0, 1.35, 32);
+      const ringColor = (id == 4 ? 0x10b981 : 0x06b6d4);
+      const ringMat = new THREE.MeshBasicMaterial({ color: ringColor, side: THREE.DoubleSide });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.03;
       bayGroup.add(ring);
 
       // Docking platform pad
-      const padGeo = new THREE.BoxGeometry(2.0, 0.06, 1.6);
-      const padMat = new THREE.MeshStandardMaterial({ color: (id == 4 ? 0x10b981 : 0x0284c7), roughness: 0.5 });
+      const padGeo = new THREE.BoxGeometry(2.4, 0.08, 2.0);
+      const padMat = new THREE.MeshStandardMaterial({ color: (id == 4 ? 0x047857 : 0x0369a1), roughness: 0.3 });
       const pad = new THREE.Mesh(padGeo, padMat);
-      pad.position.y = 0.03;
+      pad.position.y = 0.04;
       pad.receiveShadow = true;
       bayGroup.add(pad);
+
+      // Illuminated Bay Station Pillar
+      const pillarGeo = new THREE.CylinderGeometry(0.12, 0.12, 3.2, 16);
+      const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5 });
+      const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+      pillar.position.set(1.1, 1.6, 1.0);
+      bayGroup.add(pillar);
+
+      // Floating Glowing Station Beacon
+      const stBeacon = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 16, 16),
+        new THREE.MeshStandardMaterial({ color: ringColor, emissive: ringColor, emissiveIntensity: 1.0 })
+      );
+      stBeacon.position.set(1.1, 3.2, 1.0);
+      bayGroup.add(stBeacon);
+
+      const stLight = new THREE.PointLight(ringColor, 1.5, 8.0);
+      stLight.position.set(1.1, 3.2, 1.0);
+      bayGroup.add(stLight);
 
       bayGroup.position.set(d.x, 0, -d.y);
       scene.add(bayGroup);
@@ -764,10 +815,32 @@
     beaconLight.position.set(0.3, 0.75, 0);
     agvGroup.add(beaconLight);
 
+    // Dual Forward High-Intensity LED Headlights
+    const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const hlLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 12), hlMat);
+    hlLeft.rotation.z = Math.PI / 2;
+    hlLeft.position.set(1.42, 0.22, 0.28);
+    agvGroup.add(hlLeft);
+
+    const hlRight = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.06, 12), hlMat);
+    hlRight.rotation.z = Math.PI / 2;
+    hlRight.position.set(1.42, 0.22, -0.28);
+    agvGroup.add(hlRight);
+
+    // Forward Illuminating Spotlight
+    const headlightSpot = new THREE.SpotLight(0xffffff, 2.2, 16.0, Math.PI / 5, 0.4, 1.2);
+    headlightSpot.position.set(1.45, 0.35, 0);
+    const spotTarget = new THREE.Object3D();
+    spotTarget.position.set(8.0, 0, 0);
+    agvGroup.add(spotTarget);
+    headlightSpot.target = spotTarget;
+    agvGroup.add(headlightSpot);
+
     scene.add(agvGroup);
 
     // --- 9. Multiple 3D Obstacles Setup ---
     function spawn3DStaticObstacle(obs) {
+      if (!scene) return;
       const group = new THREE.Group();
 
       if (obs.type === 'pallet' || obs.type === 'crates') {
@@ -797,12 +870,26 @@
       }
 
       // Ground safety halo
-      const haloGeo = new THREE.RingGeometry(0.85, 1.0, 32);
+      const haloGeo = new THREE.RingGeometry(0.85, 1.15, 32);
       const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
       const halo = new THREE.Mesh(haloGeo, haloMat);
       halo.rotation.x = -Math.PI / 2;
       halo.position.y = 0.02;
       group.add(halo);
+
+      // Floating 3D Warning Diamond Beacon
+      const beaconColor = (obs.type === 'drums' ? 0x06b6d4 : (obs.type === 'barrier' ? 0xfacc15 : 0xef4444));
+      const floatBeacon = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.28, 0),
+        new THREE.MeshStandardMaterial({ color: beaconColor, emissive: beaconColor, emissiveIntensity: 1.0 })
+      );
+      floatBeacon.position.set(0, 1.6, 0);
+      floatBeacon.userData.isBeacon = true;
+      group.add(floatBeacon);
+
+      const pLight = new THREE.PointLight(beaconColor, 1.0, 4.0);
+      pLight.position.set(0, 1.6, 0);
+      group.add(pLight);
 
       group.position.set(obs.x, 0, -obs.y);
       scene.add(group);
@@ -848,44 +935,96 @@
       forkliftMeshes.push(flGroup);
     });
 
-    // --- 10. 3D Trajectory Ribbons & Horizon ---
-    let refPathLine = null;
+    // --- 10. 3D Trajectory Guidance Lane & Horizon ---
+    let refRibbonMesh = null;
+    let refCenterLine = null;
     let trailLine = null;
     let horizonLine = null;
 
     function buildTrajectoryRibbons() {
-      if (refPathLine) {
-        scene.remove(refPathLine);
-        if (refPathLine.geometry) refPathLine.geometry.dispose();
+      if (!scene) return;
+      if (refRibbonMesh) {
+        scene.remove(refRibbonMesh);
+        if (refRibbonMesh.geometry) refRibbonMesh.geometry.dispose();
       }
-      const points = [];
+      if (refCenterLine) {
+        scene.remove(refCenterLine);
+        if (refCenterLine.geometry) refCenterLine.geometry.dispose();
+      }
+
       const target = destinations[destId];
-      for (let sx = 0; sx <= target.x; sx += 0.2) {
+      const positions = [];
+      const indices = [];
+      const centerPoints = [];
+      const W = 0.55; // 55cm wide luminous guidance track
+
+      let indexCounter = 0;
+      for (let sx = 0; sx <= target.x; sx += 0.25) {
         const p = getReferencePose(sx, isReplanned);
-        points.push(new THREE.Vector3(sx, 0.04, -p.yRef));
+        const px = sx;
+        const pz = -p.yRef;
+        const yaw = p.yawRef;
+
+        centerPoints.push(new THREE.Vector3(px, 0.045, pz));
+
+        // Normal perpendicular in X-Z plane
+        const nx = Math.sin(yaw) * (W / 2);
+        const nz = Math.cos(yaw) * (W / 2);
+
+        // Left vertex & Right vertex
+        positions.push(px - nx, 0.035, pz - nz);
+        positions.push(px + nx, 0.035, pz + nz);
+
+        if (indexCounter > 0) {
+          const i = (indexCounter - 1) * 2;
+          indices.push(i, i + 1, i + 2);
+          indices.push(i + 1, i + 3, i + 2);
+        }
+        indexCounter++;
       }
-      const geom = new THREE.BufferGeometry().setFromPoints(points);
-      const mat = new THREE.LineDashedMaterial({
-        color: isReplanned ? 0x38bdf8 : 0xfacc15,
-        linewidth: 2,
-        dashSize: 0.4,
-        gapSize: 0.2
+
+      // 1. Wide 3D Floor Guidance Track
+      const ribbonGeo = new THREE.BufferGeometry();
+      ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      ribbonGeo.setIndex(indices);
+      ribbonGeo.computeVertexNormals();
+
+      const ribbonMat = new THREE.MeshStandardMaterial({
+        color: isReplanned ? 0x0284c7 : 0x059669,
+        emissive: isReplanned ? 0x0369a1 : 0x047857,
+        emissiveIntensity: 0.6,
+        roughness: 0.3,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide
       });
-      refPathLine = new THREE.Line(geom, mat);
-      refPathLine.computeLineDistances();
-      scene.add(refPathLine);
+      refRibbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
+      refRibbonMesh.receiveShadow = true;
+      scene.add(refRibbonMesh);
+
+      // 2. Crisp Bright White Dashed Center Line
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(centerPoints);
+      const lineMat = new THREE.LineDashedMaterial({
+        color: 0xffffff,
+        linewidth: 2,
+        dashSize: 0.5,
+        gapSize: 0.3
+      });
+      refCenterLine = new THREE.Line(lineGeo, lineMat);
+      refCenterLine.computeLineDistances();
+      scene.add(refCenterLine);
     }
     buildTrajectoryRibbons();
 
-    // Actual Trajectory Trail
+    // Actual Trajectory Trail (Electric Blue)
     const trailGeom = new THREE.BufferGeometry();
-    const trailMat = new THREE.LineBasicMaterial({ color: 0x3b82f6, linewidth: 3 });
+    const trailMat = new THREE.LineBasicMaterial({ color: 0x38bdf8 });
     trailLine = new THREE.Line(trailGeom, trailMat);
     scene.add(trailLine);
 
-    // MPC Horizon Rollout
+    // MPC Horizon Rollout (Vivid Emerald Green)
     const horizonGeom = new THREE.BufferGeometry();
-    const horizonMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 2.5 });
+    const horizonMat = new THREE.LineBasicMaterial({ color: 0x10b981 });
     horizonLine = new THREE.Line(horizonGeom, horizonMat);
     scene.add(horizonLine);
 
@@ -1051,23 +1190,32 @@
       }
       lidarFan.material.color.setHex(nearAlert ? 0xef4444 : 0x38bdf8);
 
-      // Camera Modes
+      // Rotate floating obstacle hazard beacons for clear 3D visibility
+      staticObstacleMeshes.forEach(m => {
+        m.children.forEach(c => {
+          if (c.userData && c.userData.isBeacon) {
+            c.rotation.y += 0.04;
+          }
+        });
+      });
+
+      // High-Clarity Camera Modes
       if (activeCamera === 'chase') {
-        const camDist = 6.2;
-        const camHeight = 3.4;
+        const camDist = 6.8;
+        const camHeight = 3.6;
         const camX = veh.x - camDist * Math.cos(veh.yaw);
         const camZ = -veh.y + camDist * Math.sin(veh.yaw);
-        camera.position.lerp(new THREE.Vector3(camX, camHeight, camZ), 0.1);
-        camera.lookAt(veh.x + 3.2 * Math.cos(veh.yaw), 0.9, -veh.y - 3.2 * Math.sin(veh.yaw));
+        camera.position.lerp(new THREE.Vector3(camX, camHeight, camZ), 0.12);
+        camera.lookAt(veh.x + 3.8 * Math.cos(veh.yaw), 0.85, -veh.y - 3.8 * Math.sin(veh.yaw));
       } else if (activeCamera === 'top') {
-        // Overhead camera tracks vehicle along the 75m corridor
-        camera.position.lerp(new THREE.Vector3(veh.x + 5.0, 26.0, -veh.y), 0.1);
-        camera.lookAt(veh.x + 5.0, 0, -veh.y);
+        // High-contrast overhead camera tracking the 75m corridor
+        camera.position.lerp(new THREE.Vector3(veh.x + 4.5, 23.0, -veh.y), 0.12);
+        camera.lookAt(veh.x + 4.5, 0, -veh.y);
       } else if (activeCamera === 'bumper') {
         camera.position.set(veh.x + 1.45 * Math.cos(veh.yaw), 0.55, -veh.y - 1.45 * Math.sin(veh.yaw));
         camera.lookAt(veh.x + 10.0 * Math.cos(veh.yaw), 0.3, -veh.y - 10.0 * Math.sin(veh.yaw));
       } else {
-        controls.update();
+        if (controls) controls.update();
       }
 
       renderer.render(scene, camera);
