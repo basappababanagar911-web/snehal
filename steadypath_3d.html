@@ -269,7 +269,7 @@
     <!-- Gauge 3: Steering Angle delta -->
     <div class="glass-panel rounded-xl p-3 shadow-xl pointer-events-auto">
       <div class="text-[10px] text-slate-400 flex justify-between font-bold uppercase">
-        <span>Steer Angle $\delta$</span>
+        <span>Steer Angle (δ)</span>
         <span id="hud-val-steer-rad" class="text-slate-400 font-mono">0.00 rad</span>
       </div>
       <div class="text-xl font-extrabold font-mono text-white mt-1" id="hud-val-steer-deg">0.0°</div>
@@ -1757,7 +1757,8 @@
     scene.add(horizonLine);
 
     // --- 13. Kinematic Simulation Step & Controller ---
-    function stepSimulation() {
+    function stepSimulation(customDt) {
+      const stepDt = customDt || dt;
       const target = destinations[destId];
       const distToGoal = target.x - veh.x;
 
@@ -1783,7 +1784,7 @@
           }
 
           if (!fl.holding) {
-            fl.y += fl.vy * dt * simSpeed;
+            fl.y += fl.vy * stepDt;
             if (fl.y > fl.max_y) {
               fl.y = fl.max_y;
               fl.vy = -Math.abs(fl.vy);
@@ -1800,7 +1801,7 @@
 
             if (!fl.holding && mesh.userData.wheels) {
               mesh.userData.wheels.forEach(w => {
-                w.rotation.x += Math.abs(fl.vy) * dt * simSpeed * 4.2;
+                w.rotation.x += Math.abs(fl.vy) * stepDt * 4.2;
               });
             }
 
@@ -1819,10 +1820,12 @@
       if (forkliftsActive) {
         for (const fl of forklifts) {
           const dx = fl.x - veh.x;
-          // When AGV approaches crossing: between 0.2m and 6.2m ahead
-          if (dx > 0.2 && dx < 6.2) {
-            // If crossing vehicle is inside or moving through the corridor (|fl.y| < 2.35)
-            if (Math.abs(fl.y) < 2.35) {
+          // When AGV approaches crossing: between 0.2m and 6.5m ahead
+          if (dx > 0.2 && dx < 6.5) {
+            // Check if vehicle is inside the corridor OR actively heading into it
+            const inAisle = Math.abs(fl.y) < 2.5;
+            const headingIn = (fl.y > 1.0 && fl.vy < 0) || (fl.y < -1.0 && fl.vy > 0);
+            if (inAisle || headingIn) {
               activeYield = fl;
               break;
             }
@@ -1933,7 +1936,7 @@
         }
       } else {
         currVRef = vNominal;
-        document.getElementById('hud-status').textContent = '? ACTIVE CRUISE & SLALOM';
+        document.getElementById('hud-status').textContent = '[CRUISING 0.75 m/s] PATH CLEAR';
         document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
 
         if (lidarFanMat) {
@@ -2027,17 +2030,17 @@
 
       const compTime = performance.now() - solverStart;
 
-      // Kinematic Bicycle Integration
-      veh.v += accel * dt;
+      // Kinematic Bicycle Integration (Delta-Timed)
+      veh.v += accel * stepDt;
       if (veh.v < 0.02 && currVRef === 0.0) veh.v = 0.0;
       else if (veh.v < 0.0) veh.v = 0.0;
       veh.steer = steer;
 
-      veh.x += veh.v * Math.cos(veh.yaw) * dt;
-      veh.y += veh.v * Math.sin(veh.yaw) * dt;
-      veh.yaw += (veh.v / wheelbase) * Math.tan(veh.steer) * dt;
+      veh.x += veh.v * Math.cos(veh.yaw) * stepDt;
+      veh.y += veh.v * Math.sin(veh.yaw) * stepDt;
+      veh.yaw += (veh.v / wheelbase) * Math.tan(veh.steer) * stepDt;
 
-      simTime += dt;
+      simTime += stepDt;
       simStep++;
 
       // Minimum clearance evaluation
@@ -2057,8 +2060,8 @@
 
       // Update 3D AGV Pose
       agvGroup.position.set(veh.x, 0, -veh.y);
-      agvGroup.rotation.y = -veh.yaw;
-      frontSteerPivot.rotation.y = -veh.steer;
+      agvGroup.rotation.y = veh.yaw;
+      frontSteerPivot.rotation.y = veh.steer;
 
       // LiDAR scanner sweep animation
       lidarScanPivot.rotation.y = Math.sin(simTime * 14.0) * (Math.PI / 3);
@@ -2079,13 +2082,25 @@
       updateHUD(latError, yawError, steer, minClearance, compTime, target.x);
     }
 
-    // --- 14. Animation & Render Loop ---
+    // --- 14. Animation & Render Loop (True Real-Time Delta Clock) ---
+    const simClock = new THREE.Clock();
+    let timeAccumulator = 0.0;
+    const fixedTimeStep = 0.02; // 50 Hz physics integration for buttery smooth motion
+
     function animate() {
       requestAnimationFrame(animate);
 
+      // Delta time calculation ensures identical speed across 60Hz, 120Hz, 144Hz monitors!
+      const frameDelta = Math.min(simClock.getDelta(), 0.08);
+
       if (isRunning) {
-        for (let s = 0; s < simSpeed; s++) {
-          stepSimulation();
+        timeAccumulator += frameDelta * simSpeed;
+        // Fixed sub-stepping prevents tunneling and guarantees consistent real-world timing
+        let maxSubSteps = 5;
+        while (timeAccumulator >= fixedTimeStep && maxSubSteps > 0) {
+          stepSimulation(fixedTimeStep);
+          timeAccumulator -= fixedTimeStep;
+          maxSubSteps--;
         }
       }
 
@@ -2101,24 +2116,40 @@
 
       // Ultra-Smooth Cinema Camera Modes
       if (activeCamera === 'chase') {
+        // Ultra-Clear Elevated Cinema Chase:
+        // Camera follows the AGV in its evasive lane (targetCamZ follows -veh.y)
+        // Elevation 4.6m ensures camera is far above any floor obstacle (zero clipping/occlusion)
         const camDist = 5.8;
-        const camHeight = 3.6; // High elevation ensures camera never clips into obstacles
-        const smoothYaw = veh.yaw * 0.35;
-        const targetCamX = veh.x - camDist * Math.cos(smoothYaw);
-        const rawCamZ = -veh.y + camDist * Math.sin(smoothYaw);
-        const clampedCamZ = Math.max(-2.5, Math.min(2.5, rawCamZ));
+        const camHeight = 4.6;
+        const targetCamX = veh.x - camDist;
+        const targetCamZ = -veh.y * 0.88;
 
-        camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, clampedCamZ), 0.1);
+        camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, targetCamZ), 0.12);
 
-        const desiredLookAt = new THREE.Vector3(
-          veh.x + 3.8 * Math.cos(smoothYaw),
-          0.70,
-          -veh.y - 3.8 * Math.sin(smoothYaw)
-        );
+        const desiredLookAt = new THREE.Vector3(veh.x + 2.8, 0.55, -veh.y);
         if (!camLookTarget) camLookTarget = desiredLookAt.clone();
-        else camLookTarget.lerp(desiredLookAt, 0.1);
+        else camLookTarget.lerp(desiredLookAt, 0.12);
 
         camera.lookAt(camLookTarget);
+
+        // Dynamic Camera Occlusion Prevention:
+        // If any static obstacle is between camera and AGV, make it semi-transparent so it never blocks the view
+        staticObstacleMeshes.forEach(mesh => {
+          const dxToCam = mesh.position.x - camera.position.x;
+          const dxToVeh = veh.x - mesh.position.x;
+          const isBetween = (dxToCam > 0.5 && dxToVeh > 0.2 && Math.abs(mesh.position.z - camera.position.z) < 1.4);
+          mesh.traverse(child => {
+            if (child.isMesh && child.material) {
+              if (isBetween) {
+                child.material.transparent = true;
+                child.material.opacity = 0.22;
+              } else if (child.userData.origOpacity !== undefined) {
+                child.material.opacity = child.userData.origOpacity;
+                child.material.transparent = child.userData.origTransparent;
+              }
+            }
+          });
+        });
       } else if (activeCamera === 'side') {
         // Parallel side-tracking cinema camera
         camera.position.lerp(new THREE.Vector3(veh.x - 1.2, 2.2, -veh.y + 4.8), 0.1);
