@@ -108,6 +108,14 @@
       <span class="text-slate-200 font-medium">MPC 14-Step Preview</span>
     </div>
     <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-3 h-2 rounded bg-red-500 shadow-[0_0_8px_#ef4444]"></div>
+      <span class="text-slate-200 font-medium">LiDAR Safety Stop Zone</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
+      <div class="w-3 h-2 rounded bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+      <span class="text-slate-200 font-medium">LiDAR Path Clear Zone</span>
+    </div>
+    <div class="flex items-center gap-2.5 text-[11px]">
       <div class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_#ef4444]"></div>
       <span class="text-slate-200 font-medium">Industrial Obstacles (Slalom)</span>
     </div>
@@ -328,7 +336,13 @@
     let simStep = 0;
     const dt = 0.05;
     const wheelbase = 1.2;
-    const vNominal = 0.80;
+    const vNominal = 0.75;
+
+    let lidarFanMat = null;
+    let lidarRayMat = null;
+    let brakeMat = null;
+    let agvBeacon = null;
+    let agvBeaconLight = null;
 
     // Vehicle kinematic state
     let veh = {
@@ -362,10 +376,10 @@
     // Crossing Traffic (Realistic Forklifts & AMR Pods)
     let forkliftsActive = true;
     let forklifts = [
-      { id: 1, type: 'forklift', name: 'Electric Forklift 01', x: 18.0, y: -2.5, vy: 0.35, radius: 0.75, min_y: -3.3, max_y: 3.3 },
-      { id: 2, type: 'amr', name: 'Smart AMR Pod 01', x: 35.0, y: 2.5, vy: -0.42, radius: 0.65, min_y: -3.3, max_y: 3.3 },
-      { id: 3, type: 'forklift', name: 'Electric Forklift 02', x: 53.0, y: -2.0, vy: 0.38, radius: 0.75, min_y: -3.3, max_y: 3.3 },
-      { id: 4, type: 'amr', name: 'Smart AMR Pod 02', x: 69.0, y: 2.8, vy: -0.36, radius: 0.65, min_y: -3.3, max_y: 3.3 }
+      { id: 1, type: 'forklift', name: 'Electric Forklift 01', x: 18.0, y: -2.5, vy: 0.35, radius: 0.75, min_y: -3.3, max_y: 3.3, holding: false },
+      { id: 2, type: 'amr', name: 'Smart AMR Pod 01', x: 35.0, y: 2.5, vy: -0.42, radius: 0.65, min_y: -3.3, max_y: 3.3, holding: false },
+      { id: 3, type: 'forklift', name: 'Electric Forklift 02', x: 53.0, y: -2.0, vy: 0.38, radius: 0.75, min_y: -3.3, max_y: 3.3, holding: false },
+      { id: 4, type: 'amr', name: 'Smart AMR Pod 02', x: 69.0, y: 2.8, vy: -0.36, radius: 0.65, min_y: -3.3, max_y: 3.3, holding: false }
     ];
     const forkliftMeshes = [];
     const crossingGantries = [];
@@ -610,6 +624,7 @@
         fl.x = parseFloat((baseXs[idx] + (rnd() - 0.5) * 2.5).toFixed(1));
         fl.y = parseFloat(((rnd() - 0.5) * 5.5).toFixed(2));
         fl.vy = (rnd() > 0.5 ? 1 : -1) * (0.32 + rnd() * 0.12);
+        fl.holding = false;
       });
       if (scene && forkliftMeshes && forkliftMeshes.length > 0) {
         forklifts.forEach((fl, i) => {
@@ -822,6 +837,29 @@
 
       scene.add(gantryGroup);
       crossingGantries.push({ group: gantryGroup, bulb: signalBulb, x: gx });
+    });
+
+    // High-Visibility Crosswalk Stop Lines on Factory Floor (2.8m before crossing)
+    [18.0, 35.0, 53.0, 69.0].forEach(cx => {
+      const stopLineGroup = new THREE.Group();
+      const barMesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.35, 4.4),
+        new THREE.MeshBasicMaterial({ color: 0xfacc15, side: THREE.DoubleSide })
+      );
+      barMesh.rotation.x = -Math.PI / 2;
+      barMesh.position.set(cx - 3.2, 0.012, 0);
+      stopLineGroup.add(barMesh);
+
+      for (let hz = -2.0; hz <= 2.0; hz += 0.8) {
+        const hashMesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.12, 0.35),
+          new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide })
+        );
+        hashMesh.rotation.x = -Math.PI / 2;
+        hashMesh.position.set(cx - 3.2, 0.013, hz);
+        stopLineGroup.add(hashMesh);
+      }
+      scene.add(stopLineGroup);
     });
 
     // --- 7b. Modern Warehouse High-Bay Storage Racks & Side Logistics Goods ---
@@ -1105,6 +1143,20 @@
 
     agvGroup.add(frontSteerPivot);
 
+    // Dual Rear Red High-Intensity LED Brake Lights
+    brakeMat = new THREE.MeshStandardMaterial({
+      color: 0x7f1d1d,
+      emissive: 0x7f1d1d,
+      emissiveIntensity: 0.2
+    });
+    const brakeLeft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.16), brakeMat);
+    brakeLeft.position.set(-0.16, 0.30, 0.30);
+    agvGroup.add(brakeLeft);
+
+    const brakeRight = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.16), brakeMat);
+    brakeRight.position.set(-0.16, 0.30, -0.30);
+    agvGroup.add(brakeRight);
+
     // 2D LiDAR Scanner on Front Bumper
     const lidarMount = new THREE.Mesh(
       new THREE.CylinderGeometry(0.08, 0.08, 0.14, 16),
@@ -1113,10 +1165,10 @@
     lidarMount.position.set(1.42, 0.42, 0);
     agvGroup.add(lidarMount);
 
-    // LiDAR Visual Laser Sweep Fan
-    const lidarFanGeo = new THREE.RingGeometry(0.2, 4.2, 32, 1, -Math.PI / 3, (2 * Math.PI) / 3);
-    const lidarFanMat = new THREE.MeshBasicMaterial({
-      color: 0x38bdf8,
+    // LiDAR Visual Laser Sweep Protective Field Fan
+    const lidarFanGeo = new THREE.RingGeometry(0.2, 3.8, 32, 1, -Math.PI / 3, (2 * Math.PI) / 3);
+    lidarFanMat = new THREE.MeshBasicMaterial({
+      color: 0x10b981, // Emerald green when clear
       transparent: true,
       opacity: 0.25,
       side: THREE.DoubleSide
@@ -1128,28 +1180,29 @@
     agvGroup.add(lidarFan);
 
     // LiDAR Animated Sweeping Laser Beam
+    lidarRayMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.85 });
     const lidarScanRay = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.018, 0.018, 4.2, 8),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.85 })
+      new THREE.CylinderGeometry(0.018, 0.018, 3.8, 8),
+      lidarRayMat
     );
     lidarScanRay.rotation.z = Math.PI / 2;
-    lidarScanRay.position.set(2.1, 0.12, 0);
+    lidarScanRay.position.set(1.9, 0.12, 0);
     const lidarScanPivot = new THREE.Group();
     lidarScanPivot.position.set(1.42, 0.12, 0);
     lidarScanPivot.add(lidarScanRay);
     agvGroup.add(lidarScanPivot);
 
     // Safety Strobe Beacon on Roof
-    const beacon = new THREE.Mesh(
+    agvBeacon = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 16, 16),
       new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 0.8 })
     );
-    beacon.position.set(0.3, 0.62, 0);
-    agvGroup.add(beacon);
+    agvBeacon.position.set(0.3, 0.62, 0);
+    agvGroup.add(agvBeacon);
 
-    const beaconLight = new THREE.PointLight(0xf59e0b, 1.2, 5.0);
-    beaconLight.position.set(0.3, 0.75, 0);
-    agvGroup.add(beaconLight);
+    agvBeaconLight = new THREE.PointLight(0xf59e0b, 1.2, 5.0);
+    agvBeaconLight.position.set(0.3, 0.75, 0);
+    agvGroup.add(agvBeaconLight);
 
     // Dual Forward High-Intensity LED Headlights
     const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
@@ -1719,17 +1772,17 @@
       }
 
       // Animate 4 Crossing Logistics Vehicles (Electric Forklifts & AMRs)
-      // Smart Factory Right-of-Way: Mainline AGV has priority, crossing traffic pauses at side line
+      // When AGV is occupying intersection (|veh.x - fl.x| <= 2.6), crossing traffic safely holds outside aisle (|fl.y| >= 2.3)
       if (forkliftsActive) {
         forklifts.forEach((fl, i) => {
-          const agvApproach = (veh.x > fl.x - 4.5 && veh.x < fl.x + 2.5);
-          let shouldHold = false;
-          // If AGV is approaching, vehicles hold outside the travel aisle (|fl.y| >= 2.0)
-          if (agvApproach && Math.abs(fl.y) >= 2.0) {
-            shouldHold = true;
+          const agvInIntersection = Math.abs(veh.x - fl.x) <= 2.6;
+          if (agvInIntersection && Math.abs(fl.y) >= 2.3) {
+            fl.holding = true;
+          } else {
+            fl.holding = false;
           }
 
-          if (!shouldHold) {
+          if (!fl.holding) {
             fl.y += fl.vy * dt * simSpeed;
             if (fl.y > fl.max_y) {
               fl.y = fl.max_y;
@@ -1745,14 +1798,12 @@
             mesh.position.set(fl.x, 0, -fl.y);
             mesh.rotation.y = (fl.vy > 0) ? -Math.PI / 2 : Math.PI / 2;
 
-            // Roll wheels along axle proportional to movement!
-            if (!shouldHold && mesh.userData.wheels) {
+            if (!fl.holding && mesh.userData.wheels) {
               mesh.userData.wheels.forEach(w => {
                 w.rotation.x += Math.abs(fl.vy) * dt * simSpeed * 4.2;
               });
             }
 
-            // Beacon / Halo dynamic pulsations
             if (mesh.userData.beacon) {
               mesh.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 15.0);
             }
@@ -1763,38 +1814,144 @@
         });
       }
 
-      // Update Overhead Gantry Traffic Lights
-      let activeCrossingX = null;
+      // Check for Crossing Obstacles (Yielding & Safety Stop)
+      let activeYield = null;
       if (forkliftsActive) {
         for (const fl of forklifts) {
-          if (Math.abs(fl.y) < 2.2) {
-            activeCrossingX = fl.x;
+          const dx = fl.x - veh.x;
+          // When AGV approaches crossing: between 0.2m and 6.2m ahead
+          if (dx > 0.2 && dx < 6.2) {
+            // If crossing vehicle is inside or moving through the corridor (|fl.y| < 2.35)
+            if (Math.abs(fl.y) < 2.35) {
+              activeYield = fl;
+              break;
+            }
+          }
+        }
+      }
+
+      // Check for Static Obstacle directly in path (Emergency Safety Zone)
+      let staticBlockAhead = false;
+      if (courseActive) {
+        for (const obs of obstacles) {
+          const dx = obs.x - veh.x;
+          const dy = obs.y - veh.y;
+          const longDist = dx * Math.cos(veh.yaw) + dy * Math.sin(veh.yaw);
+          const latDist = -dx * Math.sin(veh.yaw) + dy * Math.cos(veh.yaw);
+          if (longDist > 0.2 && longDist < 2.4 && Math.abs(latDist) < 0.60) {
+            staticBlockAhead = true;
             break;
           }
         }
       }
 
+      // Update Overhead Gantry Traffic Lights
       crossingGantries.forEach(g => {
-        const isHazard = (activeCrossingX !== null && Math.abs(g.x - activeCrossingX) < 1.0);
-        if (isHazard) {
+        const isYieldingHere = (activeYield !== null && Math.abs(g.x - activeYield.x) < 1.0);
+        if (isYieldingHere) {
           const blink = (Math.sin(simTime * 12.0) > 0);
-          g.bulb.material.color.setHex(blink ? 0xf59e0b : 0xef4444);
-          g.bulb.material.emissive.setHex(blink ? 0xf59e0b : 0xef4444);
+          g.bulb.material.color.setHex(blink ? 0xef4444 : 0xf59e0b);
+          g.bulb.material.emissive.setHex(blink ? 0xef4444 : 0xf59e0b);
         } else {
           g.bulb.material.color.setHex(0x10b981);
           g.bulb.material.emissive.setHex(0x10b981);
         }
       });
 
-      // Smooth continuous cruising speed - AGV NEVER STOPS IN FRONT OF OBSTACLES!
-      let currVRef = vNominal;
-      if (distToGoal < 4.0) {
-        currVRef = Math.max(0.25, (distToGoal / 4.0) * vNominal);
-        document.getElementById('hud-status').textContent = 'DOCKING IN BAY';
+      // Target Velocity & Dynamic Safety Scanner State
+      let currVRef = vNominal; // 0.75 m/s
+
+      if (activeYield) {
+        const stopLineX = activeYield.x - 3.2;
+        const distToStopLine = stopLineX - veh.x;
+        if (distToStopLine <= 0.08) {
+          currVRef = 0.0; // COMPLETE SAFETY STOP AT STOP LINE!
+          document.getElementById('hud-status').textContent = `?? SAFETY STOP: YIELDING TO ${activeYield.name.toUpperCase()}`;
+          document.getElementById('hud-status').className = 'font-bold text-red-400 text-sm animate-pulse';
+        } else if (distToStopLine < 2.2) {
+          currVRef = Math.max(0.12, (distToStopLine / 2.2) * 0.35); // Smooth deceleration
+          document.getElementById('hud-status').textContent = `?? CAUTION: DECELERATING FOR ${activeYield.name.toUpperCase()}`;
+          document.getElementById('hud-status').className = 'font-bold text-amber-400 text-sm';
+        } else {
+          currVRef = 0.40;
+          document.getElementById('hud-status').textContent = `?? APPROACHING CROSSING (${activeYield.name.toUpperCase()})`;
+          document.getElementById('hud-status').className = 'font-bold text-amber-300 text-sm';
+        }
+
+        // Active Red Safety Warning Visuals
+        if (lidarFanMat) {
+          lidarFanMat.color.setHex(0xef4444);
+          lidarFanMat.opacity = 0.55 + 0.25 * Math.sin(simTime * 14.0);
+        }
+        if (lidarRayMat) lidarRayMat.color.setHex(0xef4444);
+        if (brakeMat) {
+          brakeMat.color.setHex(0xff0000);
+          brakeMat.emissive.setHex(0xff0000);
+          brakeMat.emissiveIntensity = 2.8;
+        }
+        if (agvBeaconLight) agvBeaconLight.color.setHex(0xef4444);
+        if (agvBeacon) {
+          agvBeacon.material.color.setHex(0xef4444);
+          agvBeacon.material.emissive.setHex(0xef4444);
+          agvBeacon.material.emissiveIntensity = 1.6;
+        }
+      } else if (staticBlockAhead) {
+        currVRef = 0.0; // SAFETY STOP for static hazard directly ahead
+        document.getElementById('hud-status').textContent = '?? SAFETY STOP: OBSTACLE DIRECTLY IN PATH';
+        document.getElementById('hud-status').className = 'font-bold text-red-400 text-sm animate-pulse';
+
+        if (lidarFanMat) {
+          lidarFanMat.color.setHex(0xef4444);
+          lidarFanMat.opacity = 0.55 + 0.25 * Math.sin(simTime * 14.0);
+        }
+        if (lidarRayMat) lidarRayMat.color.setHex(0xef4444);
+        if (brakeMat) {
+          brakeMat.color.setHex(0xff0000);
+          brakeMat.emissive.setHex(0xff0000);
+          brakeMat.emissiveIntensity = 2.8;
+        }
+      } else if (distToGoal < 4.0) {
+        currVRef = Math.max(0.20, (distToGoal / 4.0) * vNominal);
+        document.getElementById('hud-status').textContent = '?? DOCKING IN LOGISTICS BAY';
         document.getElementById('hud-status').className = 'font-bold text-cyan-400 text-sm';
+
+        if (lidarFanMat) {
+          lidarFanMat.color.setHex(0x38bdf8);
+          lidarFanMat.opacity = 0.28;
+        }
+        if (lidarRayMat) lidarRayMat.color.setHex(0x38bdf8);
+        if (brakeMat) {
+          brakeMat.color.setHex(0x7f1d1d);
+          brakeMat.emissive.setHex(0x7f1d1d);
+          brakeMat.emissiveIntensity = 0.3;
+        }
+        if (agvBeaconLight) agvBeaconLight.color.setHex(0xf59e0b);
+        if (agvBeacon) {
+          agvBeacon.material.color.setHex(0xf59e0b);
+          agvBeacon.material.emissive.setHex(0xf59e0b);
+          agvBeacon.material.emissiveIntensity = 0.8;
+        }
       } else {
-        document.getElementById('hud-status').textContent = 'ACTIVE SLALOM (CRUISING)';
+        currVRef = vNominal;
+        document.getElementById('hud-status').textContent = '? ACTIVE CRUISE & SLALOM';
         document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
+
+        if (lidarFanMat) {
+          lidarFanMat.color.setHex(0x10b981);
+          lidarFanMat.opacity = 0.25;
+        }
+        if (lidarRayMat) lidarRayMat.color.setHex(0x10b981);
+        if (brakeMat) {
+          brakeMat.color.setHex(0x7f1d1d);
+          brakeMat.emissive.setHex(0x7f1d1d);
+          brakeMat.emissiveIntensity = 0.2;
+        }
+        if (agvBeaconLight) agvBeaconLight.color.setHex(0xf59e0b);
+        if (agvBeacon) {
+          agvBeacon.material.color.setHex(0xf59e0b);
+          agvBeacon.material.emissive.setHex(0xf59e0b);
+          agvBeacon.material.emissiveIntensity = 0.8;
+        }
       }
 
       const ref = getReferencePose(veh.x, isReplanned);
@@ -1861,15 +2018,19 @@
       }
 
       // Longitudinal velocity control
-      const kVel = 1.8;
+      const kVel = 2.4;
       accel = -kVel * velError;
-      accel = Math.max(-2.5, Math.min(1.5, accel));
+      if (currVRef === 0.0) {
+        accel = Math.min(accel, -2.5); // Assertive braking to complete stop
+      }
+      accel = Math.max(-2.8, Math.min(1.2, accel));
 
       const compTime = performance.now() - solverStart;
 
       // Kinematic Bicycle Integration
       veh.v += accel * dt;
-      if (veh.v < 0.0) veh.v = 0.0;
+      if (veh.v < 0.02 && currVRef === 0.0) veh.v = 0.0;
+      else if (veh.v < 0.0) veh.v = 0.0;
       veh.steer = steer;
 
       veh.x += veh.v * Math.cos(veh.yaw) * dt;
