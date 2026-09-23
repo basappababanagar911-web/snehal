@@ -3,14 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    window.addEventListener('error', function(e) {
+      document.title = 'JS_ERR: ' + e.message + ' at ' + e.lineno + ':' + e.colno;
+    });
+  </script>
   <title>SteadyPath AGV - Extended 75m Multi-Obstacle 3D Warehouse Simulation</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <!-- Three.js 3D Engine & OrbitControls -->
   <script src="three.min.js"></script>
-  <script src="OrbitControls.js"></script>
   <script>
     if (typeof THREE === 'undefined') {
       document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>');
+    }
+  </script>
+  <script src="OrbitControls.js"></script>
+  <script>
+    if (typeof THREE !== 'undefined' && typeof THREE.OrbitControls === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"><\/script>');
     }
   </script>
   <style>
@@ -307,6 +317,10 @@
     ];
     const forkliftMeshes = [];
     const bayMarkers = {};
+    let scene = null;
+    let camera = null;
+    let renderer = null;
+    let controls = null;
 
     let isReplanned = true;
     let replanCount = 0;
@@ -412,7 +426,7 @@
         curX += 9.0 + rnd() * 7.0; // Space next obstacle 9m - 16m away
       }
 
-      if (typeof renderAllStaticObstacles === 'function') {
+      if (scene && typeof renderAllStaticObstacles === 'function') {
         renderAllStaticObstacles();
       }
       const badge = document.getElementById('obs-count-badge');
@@ -430,7 +444,7 @@
         fl.vy = parseFloat((speed * dir).toFixed(3));
       });
 
-      if (forkliftMeshes && forkliftMeshes.length > 0) {
+      if (scene && forkliftMeshes && forkliftMeshes.length > 0) {
         forklifts.forEach((fl, i) => {
           if (forkliftMeshes[i]) {
             forkliftMeshes[i].position.set(fl.x, 0, -fl.y);
@@ -448,7 +462,7 @@
         d.y = parseFloat(((destY - randomPathParams.rawY0) * randomPathParams.scale).toFixed(2));
         d.y = Math.max(-2.0, Math.min(2.0, d.y));
 
-        if (bayMarkers && bayMarkers[id]) {
+        if (scene && bayMarkers && bayMarkers[id]) {
           bayMarkers[id].position.set(d.x, 0, -d.y);
         }
       }
@@ -507,12 +521,12 @@
 
     // --- 3. Three.js 3D Scene Setup ---
     const container = document.getElementById('canvas-container');
-    const scene = new THREE.Scene();
+    scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090d16);
     scene.fog = new THREE.FogExp2(0x090d16, 0.012);
 
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 180);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 180);
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -520,12 +534,14 @@
     container.appendChild(renderer.domElement);
 
     // Orbit Controls
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.02;
-    controls.minDistance = 2.0;
-    controls.maxDistance = 85.0;
+    if (typeof THREE.OrbitControls !== 'undefined') {
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.maxPolarAngle = Math.PI / 2 - 0.02;
+      controls.minDistance = 2.0;
+      controls.maxDistance = 85.0;
+    }
 
     // --- 4. 3D Lighting (Extended along 85m) ---
     const ambientLight = new THREE.AmbientLight(0x64748b, 0.9);
