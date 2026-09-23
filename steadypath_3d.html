@@ -820,6 +820,177 @@
       crossingGantries.push({ group: gantryGroup, bulb: signalBulb, x: gx });
     });
 
+    // --- 7b. Modern Warehouse High-Bay Storage Racks & Side Logistics Goods ---
+    const rackBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.3 }); // Upright Safety Blue
+    const beamYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.4, roughness: 0.4 }); // Load Beam Safety Yellow
+    const deckingMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7, roughness: 0.3 }); // Steel Wire Deck
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.85 }); // Euro-Pallet Wood
+    const boxMat1 = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 }); // Carton Tan
+    const boxMat2 = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 }); // Carton Brown
+    const toteBlueMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
+    const toteRedMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+    const toteGreenMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.4 });
+    const wrapMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, transparent: true, opacity: 0.35, roughness: 0.1 });
+
+    const crossingXs = [18.0, 35.0, 53.0, 69.0];
+
+    // High-Bay Racks along North (z = -6.2) and South (z = +6.2)
+    [-6.2, 6.2].forEach(sideZ => {
+      for (let rx = -4.0; rx <= 88.0; rx += 3.6) {
+        // Leave open portals for crossing vehicle aisles
+        let isCrossingPortal = false;
+        for (const cx of crossingXs) {
+          if (Math.abs(rx - cx) < 2.2) {
+            isCrossingPortal = true;
+            break;
+          }
+        }
+        if (isCrossingPortal) {
+          // Entrance Portal Arch with Illuminated Aisle Placard
+          const portalL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4.4, 0.2), rackBlueMat);
+          portalL.position.set(rx - 1.6, 2.2, sideZ);
+          scene.add(portalL);
+
+          const portalR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 4.4, 0.2), rackBlueMat);
+          portalR.position.set(rx + 1.6, 2.2, sideZ);
+          scene.add(portalR);
+
+          const portalTop = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.25, 0.2), beamYellowMat);
+          portalTop.position.set(rx, 4.3, sideZ);
+          scene.add(portalTop);
+
+          const signMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+          const sign = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.45, 0.05), signMat);
+          sign.position.set(rx, 4.0, sideZ + (sideZ > 0 ? -0.12 : 0.12));
+          scene.add(sign);
+          continue;
+        }
+
+        // Modular 3-Tier Industrial Pallet Rack Bay (3.2m long, 1.2m deep, 4.2m high)
+        const bayGroup = new THREE.Group();
+        bayGroup.position.set(rx, 0, sideZ);
+
+        // 4 Vertical Steel Uprights
+        const upGeo = new THREE.BoxGeometry(0.1, 4.2, 0.1);
+        [
+          { x: -1.5, z: -0.55 }, { x: 1.5, z: -0.55 },
+          { x: -1.5, z: 0.55 }, { x: 1.5, z: 0.55 }
+        ].forEach(pos => {
+          const up = new THREE.Mesh(upGeo, rackBlueMat);
+          up.position.set(pos.x, 2.1, pos.z);
+          up.castShadow = true;
+          bayGroup.add(up);
+        });
+
+        // Diagonal lattice cross bracing
+        const diagGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.45, 8);
+        [-1.5, 1.5].forEach(dx => {
+          const d1 = new THREE.Mesh(diagGeo, rackBlueMat);
+          d1.position.set(dx, 1.4, 0);
+          d1.rotation.x = Math.PI / 4;
+          bayGroup.add(d1);
+
+          const d2 = new THREE.Mesh(diagGeo, rackBlueMat);
+          d2.position.set(dx, 2.8, 0);
+          d2.rotation.x = -Math.PI / 4;
+          bayGroup.add(d2);
+        });
+
+        // 3 Tiers of Safety Yellow Load Beams
+        [0.18, 1.65, 3.1].forEach((levelY, lvlIdx) => {
+          const beamGeo = new THREE.BoxGeometry(3.08, 0.12, 0.06);
+          const beamF = new THREE.Mesh(beamGeo, beamYellowMat);
+          beamF.position.set(0, levelY, 0.55);
+          bayGroup.add(beamF);
+
+          const beamB = new THREE.Mesh(beamGeo, beamYellowMat);
+          beamB.position.set(0, levelY, -0.55);
+          bayGroup.add(beamB);
+
+          // Wire mesh shelf decking
+          const deck = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.02, 1.05), deckingMat);
+          deck.position.set(0, levelY + 0.06, 0);
+          bayGroup.add(deck);
+
+          // 2 Pallet Slots per Level
+          [-0.75, 0.75].forEach((slotX, slotIdx) => {
+            const seedVal = Math.sin(rx * 11.3 + lvlIdx * 7.1 + slotIdx * 3.7);
+            const cargoType = Math.abs(seedVal);
+
+            // Euro Pallet base
+            const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.0), woodMat);
+            pal.position.set(slotX, levelY + 0.12, 0);
+            bayGroup.add(pal);
+
+            if (cargoType < 0.45) {
+              // Cardboard Cartons with Stretch Wrap
+              const box = new THREE.Mesh(
+                new THREE.BoxGeometry(1.05, 0.75 + (seedVal > 0 ? 0.2 : 0), 0.88),
+                (lvlIdx % 2 === 0 ? boxMat1 : boxMat2)
+              );
+              box.position.set(slotX, levelY + 0.55, 0);
+              box.castShadow = true;
+              bayGroup.add(box);
+
+              const wrap = new THREE.Mesh(
+                new THREE.BoxGeometry(1.07, 0.77 + (seedVal > 0 ? 0.2 : 0), 0.9),
+                wrapMat
+              );
+              wrap.position.set(slotX, levelY + 0.55, 0);
+              bayGroup.add(wrap);
+            } else if (cargoType < 0.75) {
+              // Plastic Storage Totes
+              const tMat = (cargoType < 0.55 ? toteBlueMat : (cargoType < 0.65 ? toteRedMat : toteGreenMat));
+              [-0.24, 0.24].forEach(tx => {
+                [-0.2, 0.2].forEach(tz => {
+                  const tote = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.26, 0.38), tMat);
+                  tote.position.set(slotX + tx, levelY + 0.31, tz);
+                  tote.castShadow = true;
+                  bayGroup.add(tote);
+
+                  const toteTop = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.24, 0.38), toteBlueMat);
+                  toteTop.position.set(slotX + tx, levelY + 0.56, tz);
+                  bayGroup.add(toteTop);
+                });
+              });
+            } else {
+              // Chemical Drums on Pallet
+              const drumMat = (seedVal > 0 ? new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6 }) : new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.5 }));
+              [-0.24, 0.24].forEach(dx => {
+                const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.8, 12), drumMat);
+                drum.position.set(slotX + dx, levelY + 0.58, 0);
+                drum.castShadow = true;
+                bayGroup.add(drum);
+              });
+            }
+          });
+        });
+
+        scene.add(bayGroup);
+      }
+    });
+
+    // Side Floor Staging Zones (Stacks of Empty Wooden Pallets & Floor Storage)
+    [-5.2, 5.2].forEach(floorSideZ => {
+      [-2.0, 12.0, 28.0, 46.0, 62.0, 78.0].forEach(sx => {
+        // Stack of 5 Empty Euro-Pallets
+        for (let py = 0; py < 5; py++) {
+          const emptyPal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.0), woodMat);
+          emptyPal.position.set(sx, py * 0.13 + 0.06, floorSideZ);
+          emptyPal.castShadow = true;
+          scene.add(emptyPal);
+        }
+
+        const stageBox = new THREE.Mesh(
+          new THREE.PlaneGeometry(1.8, 1.4),
+          new THREE.MeshBasicMaterial({ color: 0xfacc15, wireframe: true })
+        );
+        stageBox.rotation.x = -Math.PI / 2;
+        stageBox.position.set(sx, 0.015, floorSideZ);
+        scene.add(stageBox);
+      });
+    });
+
     // Start Station Induction Charging Pad
     const startPad = new THREE.Mesh(
       new THREE.RingGeometry(0.8, 1.25, 32),
@@ -1544,23 +1715,34 @@
       }
 
       // Animate 4 Crossing Logistics Vehicles (Electric Forklifts & AMRs)
+      // Smart Factory Right-of-Way: Mainline AGV has priority, crossing traffic pauses at side line
       if (forkliftsActive) {
         forklifts.forEach((fl, i) => {
-          fl.y += fl.vy * dt * simSpeed;
-          if (fl.y > fl.max_y) {
-            fl.y = fl.max_y;
-            fl.vy = -Math.abs(fl.vy);
-          } else if (fl.y < fl.min_y) {
-            fl.y = fl.min_y;
-            fl.vy = Math.abs(fl.vy);
+          const agvApproach = (veh.x > fl.x - 4.5 && veh.x < fl.x + 2.5);
+          let shouldHold = false;
+          // If AGV is approaching, vehicles hold outside the travel aisle (|fl.y| >= 2.0)
+          if (agvApproach && Math.abs(fl.y) >= 2.0) {
+            shouldHold = true;
           }
+
+          if (!shouldHold) {
+            fl.y += fl.vy * dt * simSpeed;
+            if (fl.y > fl.max_y) {
+              fl.y = fl.max_y;
+              fl.vy = -Math.abs(fl.vy);
+            } else if (fl.y < fl.min_y) {
+              fl.y = fl.min_y;
+              fl.vy = Math.abs(fl.vy);
+            }
+          }
+
           const mesh = forkliftMeshes[i];
           if (mesh) {
             mesh.position.set(fl.x, 0, -fl.y);
             mesh.rotation.y = (fl.vy > 0) ? -Math.PI / 2 : Math.PI / 2;
 
             // Roll wheels along axle proportional to movement!
-            if (mesh.userData.wheels) {
+            if (!shouldHold && mesh.userData.wheels) {
               mesh.userData.wheels.forEach(w => {
                 w.rotation.x += Math.abs(fl.vy) * dt * simSpeed * 4.2;
               });
@@ -1577,47 +1759,37 @@
         });
       }
 
-      // Dynamic LiDAR Cross-Traffic Detection & Yielding
-      let forkliftYield = false;
+      // Update Overhead Gantry Traffic Lights
       let activeCrossingX = null;
       if (forkliftsActive) {
         for (const fl of forklifts) {
-          const dx = fl.x - veh.x;
-          const dy = Math.abs(fl.y - veh.y);
-          // If a vehicle is in the intersection corridor ahead (0.4m to 5.4m) and entering path (|dy| < 2.2m)
-          if (dx > 0.4 && dx < 5.4 && dy < 2.2) {
-            forkliftYield = true;
+          if (Math.abs(fl.y) < 2.2) {
             activeCrossingX = fl.x;
             break;
           }
         }
       }
 
-      // Update Overhead Gantry Traffic Lights
       crossingGantries.forEach(g => {
         const isHazard = (activeCrossingX !== null && Math.abs(g.x - activeCrossingX) < 1.0);
         if (isHazard) {
           const blink = (Math.sin(simTime * 12.0) > 0);
-          g.bulb.material.color.setHex(blink ? 0xef4444 : 0xf59e0b);
-          g.bulb.material.emissive.setHex(blink ? 0xef4444 : 0xf59e0b);
+          g.bulb.material.color.setHex(blink ? 0xf59e0b : 0xef4444);
+          g.bulb.material.emissive.setHex(blink ? 0xf59e0b : 0xef4444);
         } else {
           g.bulb.material.color.setHex(0x10b981);
           g.bulb.material.emissive.setHex(0x10b981);
         }
       });
 
-      // Smooth deceleration near destination or yielding for crossing traffic
+      // Smooth continuous cruising speed - AGV NEVER STOPS IN FRONT OF OBSTACLES!
       let currVRef = vNominal;
-      if (forkliftYield) {
-        currVRef = 0.0;
-        document.getElementById('hud-status').textContent = 'YIELDING: CROSS-TRAFFIC';
-        document.getElementById('hud-status').className = 'font-bold text-amber-400 text-sm animate-pulse';
-      } else if (distToGoal < 4.0) {
+      if (distToGoal < 4.0) {
         currVRef = Math.max(0.25, (distToGoal / 4.0) * vNominal);
-        document.getElementById('hud-status').textContent = 'RUNNING';
-        document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
+        document.getElementById('hud-status').textContent = 'DOCKING IN BAY';
+        document.getElementById('hud-status').className = 'font-bold text-cyan-400 text-sm';
       } else {
-        document.getElementById('hud-status').textContent = 'RUNNING';
+        document.getElementById('hud-status').textContent = 'ACTIVE SLALOM (CRUISING)';
         document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
       }
 
