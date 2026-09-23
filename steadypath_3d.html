@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SteadyPath AGV - 3D Autonomous Warehouse Simulation</title>
+  <title>SteadyPath AGV - Extended 75m Multi-Obstacle 3D Warehouse Simulation</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <!-- Three.js 3D Engine & OrbitControls -->
   <script src="three.min.js"></script>
@@ -17,7 +17,7 @@
     body { margin: 0; overflow: hidden; user-select: none; font-family: system-ui, -apple-system, sans-serif; }
     #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
     .glass-panel {
-      background: rgba(15, 23, 42, 0.82);
+      background: rgba(15, 23, 42, 0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(51, 65, 85, 0.65);
@@ -32,17 +32,17 @@
 
   <!-- TOP HUD BAR -->
   <header class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
-    <!-- Title & Brand -->
+    <!-- Brand / Title -->
     <div class="glass-panel rounded-xl px-4 py-2.5 shadow-xl flex items-center gap-3 pointer-events-auto">
       <div class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></div>
       <div>
         <div class="flex items-center gap-2">
           <h1 class="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
-            <span class="text-amber-400">SteadyPath</span> 3D AGV Simulation
+            <span class="text-amber-400">SteadyPath</span> 3D Warehouse Simulation
           </h1>
-          <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">Three.js WebGL</span>
+          <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">75m Long Path</span>
         </div>
-        <p class="text-[11px] text-slate-400">Autonomous Guided Vehicle Motion Control &bull; Snehal 14-Day Analytics</p>
+        <p class="text-[11px] text-slate-400">Multi-Obstacle Dynamic Replanning &bull; 4 Crossing Forklifts &bull; Snehal Analytics</p>
       </div>
     </div>
 
@@ -51,6 +51,10 @@
       <div class="flex items-center gap-1.5 border-r border-slate-700 pr-3">
         <span class="text-slate-400">TIME:</span>
         <span id="hud-time" class="font-bold text-white text-sm">0.00s</span>
+      </div>
+      <div class="flex items-center gap-1.5 border-r border-slate-700 pr-3">
+        <span class="text-slate-400">DISTANCE:</span>
+        <span id="hud-dist" class="font-bold text-amber-400 text-sm">0.0m / 75.0m</span>
       </div>
       <div class="flex items-center gap-1.5 border-r border-slate-700 pr-3">
         <span class="text-slate-400">MODE:</span>
@@ -67,20 +71,20 @@
       <span class="text-[10px] text-slate-400 px-2 font-mono uppercase">Camera:</span>
       <button class="cam-btn px-2.5 py-1 rounded-lg bg-blue-600 text-white font-semibold transition-all" data-cam="chase">🎥 Chase</button>
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="orbit">🌐 Orbit 3D</button>
-      <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="top">📐 Top-Down</button>
+      <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="top">📐 Overhead</button>
       <button class="cam-btn px-2.5 py-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition-all" data-cam="bumper">🚗 Bumper</button>
     </div>
   </header>
 
-  <!-- REPLAN EVENT BANNER -->
+  <!-- EVENT TOAST NOTIFICATION -->
   <div id="event-toast" class="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-xl bg-amber-500/95 text-slate-950 font-bold text-xs shadow-2xl flex items-center gap-2 border border-amber-300 transition-opacity duration-300 opacity-0 pointer-events-none">
     <span class="text-base">⚠️</span>
     <span id="event-toast-msg">DYNAMIC REPLAN TRIGGERED</span>
   </div>
 
   <!-- INTERACTIVE CONTROLS TOOLBAR -->
-  <div class="absolute top-20 left-3 z-10 glass-panel rounded-xl p-3 shadow-xl space-y-3 w-64 pointer-events-auto">
-    <!-- Playback -->
+  <div class="absolute top-20 left-3 z-10 glass-panel rounded-xl p-3 shadow-xl space-y-3 w-72 pointer-events-auto">
+    <!-- Playback & Speed -->
     <div class="flex items-center gap-2">
       <button id="btn-play" class="flex-1 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow">
         <span id="play-icon">⏸</span> <span id="play-text">Pause</span>
@@ -95,37 +99,47 @@
       </div>
     </div>
 
-    <!-- Proof 3: Controller Toggle -->
+    <!-- Proof 3: Controller Selection -->
     <div>
       <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
-        <span>Controller (Proof 3)</span>
-        <span id="ctrl-perf-label" class="text-emerald-400 font-mono">97% Precision</span>
+        <span>Controller Mode (Proof 3)</span>
+        <span id="ctrl-perf-label" class="text-emerald-400 font-mono text-[10px]">97% Accuracy</span>
       </div>
       <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-900/90 rounded-lg border border-slate-800 text-xs">
         <button id="btn-ctrl-mpc" class="py-1 rounded font-bold transition-all bg-blue-600 text-white shadow">SteadyPath MPC</button>
-        <button id="btn-ctrl-stanley" class="py-1 rounded font-medium transition-all text-slate-400 hover:text-white">Stanley Base</button>
+        <button id="btn-ctrl-stanley" class="py-1 rounded font-medium transition-all text-slate-400 hover:text-white">Stanley Baseline</button>
       </div>
     </div>
 
-    <!-- Proof 1: Destinations -->
+    <!-- Proof 1: Extended Destinations (4 Bays up to 75m) -->
     <div>
-      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Destination Bay (Proof 1)</div>
-      <div class="grid grid-cols-3 gap-1 text-[11px] font-mono">
-        <button class="dest-btn py-1 rounded border border-blue-500/40 bg-blue-600/30 text-blue-300 font-bold" data-dest="1">Bay 1 (30m)</button>
-        <button class="dest-btn py-1 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-white" data-dest="2">Bay 2 (24m)</button>
-        <button class="dest-btn py-1 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-white" data-dest="3">Bay 3 (36m)</button>
+      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
+        <span>Extended Route Destination (Proof 1)</span>
+        <span class="text-amber-400 font-mono text-[10px]">Up to 75m</span>
+      </div>
+      <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+        <button class="dest-btn py-1 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-white" data-dest="1">Bay 1 (25m)</button>
+        <button class="dest-btn py-1 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-white" data-dest="2">Bay 2 (42m)</button>
+        <button class="dest-btn py-1 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-white" data-dest="3">Bay 3 (58m)</button>
+        <button class="dest-btn py-1 rounded border border-blue-500/50 bg-blue-600/30 text-blue-300 font-bold" data-dest="4">Bay 4 (75m)</button>
       </div>
     </div>
 
-    <!-- Proof 2: Obstacles & Replanning -->
+    <!-- Proof 2: Obstacles & Evasive Multi-Replan -->
     <div>
-      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5">Obstacle Actions (Proof 2)</div>
+      <div class="text-[10px] text-slate-400 font-bold uppercase mb-1.5 flex justify-between">
+        <span>Obstacle Controls (Proof 2)</span>
+        <span id="obs-count-badge" class="text-amber-400 font-mono text-[10px]">4 Obstacles</span>
+      </div>
       <div class="space-y-1.5">
-        <button id="btn-spawn-block" class="w-full py-1.5 px-2.5 rounded-lg bg-amber-600/25 hover:bg-amber-600/35 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
-          <span>🚧</span> <span>Spawn Corridor Blockage</span>
+        <button id="btn-spawn-ahead" class="w-full py-1.5 px-2 rounded-lg bg-amber-600/25 hover:bg-amber-600/35 text-amber-300 border border-amber-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+          <span>🚧</span> <span>Spawn Blockage Ahead</span>
         </button>
-        <button id="btn-toggle-forklift" class="w-full py-1.5 px-2.5 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
-          <span>🚜</span> <span id="btn-forklift-text">Add Crossing Forklift</span>
+        <button id="btn-toggle-forklifts" class="w-full py-1.5 px-2 rounded-lg bg-indigo-600/25 hover:bg-indigo-600/35 text-indigo-300 border border-indigo-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+          <span>🚜</span> <span id="btn-forklifts-label">4 Crossing Forklifts: ON</span>
+        </button>
+        <button id="btn-toggle-course" class="w-full py-1.5 px-2 rounded-lg bg-rose-600/25 hover:bg-rose-600/35 text-rose-300 border border-rose-500/40 text-xs font-bold transition-colors flex items-center justify-center gap-1.5">
+          <span>⚠️</span> <span id="btn-course-label">Obstacle Course: ACTIVE</span>
         </button>
       </div>
     </div>
@@ -212,7 +226,7 @@
       <div class="text-xl font-extrabold font-mono text-white mt-1" id="hud-val-clear">&gt; 5.00 m</div>
       <div class="text-[10px] text-slate-400 mt-1 flex justify-between">
         <span>Buffer: 0.50m</span>
-        <span class="text-emerald-400 font-bold font-mono">0 Collisions</span>
+        <span class="text-emerald-400 font-bold font-mono" id="collision-counter">0 Collisions</span>
       </div>
     </div>
   </div>
@@ -223,53 +237,79 @@
     let isRunning = true;
     let simSpeed = 1;
     let controller = 'MPC'; // 'MPC' or 'STANLEY'
-    let destId = 1;
+    let destId = 4; // Default to Longest Route: Bay 4 (75m!)
     let activeCamera = 'chase'; // 'chase', 'orbit', 'top', 'bumper'
 
     let simTime = 0.0;
     let simStep = 0;
     const dt = 0.05;
     const wheelbase = 1.2;
-    const vNominal = 1.5;
+    const vNominal = 1.6;
 
     // Vehicle kinematic state
     let veh = {
       x: 0.0,
       y: 0.0,
-      yaw: 0.465,
+      yaw: 0.40,
       v: 0.0,
       steer: 0.0,
       accel: 0.0,
       trail: []
     };
 
-    // Destinations
+    // Extended Destinations spanning across 75 meters
     const destinations = {
-      1: { name: "Bay 1", x: 30.0, y: 1.902 },
-      2: { name: "Bay 2", x: 24.0, y: -0.495 },
-      3: { name: "Bay 3", x: 36.0, y: 0.742 }
+      1: { name: "Bay 1 (Receiving)", x: 25.0, y: 1.8 },
+      2: { name: "Bay 2 (Inspection)", x: 42.0, y: -1.6 },
+      3: { name: "Bay 3 (Sorting Hub)", x: 58.0, y: 1.4 },
+      4: { name: "Bay 4 (Deep Logistics)", x: 75.0, y: -0.8 }
     };
 
-    // Obstacles
-    let obstacles = [];
-    let isReplanned = false;
-    let replanCount = 0;
-    let forkliftActive = false;
-    let forkliftObj = { x: 15.0, y: -3.5, vy: 0.35, radius: 0.55 };
+    // Obstacles: Pre-populated 4 Static Obstacles along the 75m corridor
+    let courseActive = true;
+    let staticObstaclesPreset = [
+      { id: 'obs1', x: 13.5, y: 0.5, radius: 0.6, type: 'pallet', label: 'CARGO PALLET' },
+      { id: 'obs2', x: 29.0, y: -0.6, radius: 0.55, type: 'drums', label: 'HAZARD DRUMS' },
+      { id: 'obs3', x: 48.0, y: 0.6, radius: 0.6, type: 'crates', label: 'FALLEN CRATES' },
+      { id: 'obs4', x: 65.0, y: -0.5, radius: 0.55, type: 'barrier', label: 'MAINTENANCE BARRIER' }
+    ];
+    let obstacles = [...staticObstaclesPreset];
 
-    // --- 2. Math & Reference Curves ---
+    // 4 Dynamic Crossing Forklifts traversing along the 75m route!
+    let forkliftsActive = true;
+    let forklifts = [
+      { id: 1, x: 18.0, y: -3.2, vy: 0.35, radius: 0.55, min_y: -3.4, max_y: 3.4 },
+      { id: 2, x: 35.0, y: 3.2, vy: -0.40, radius: 0.55, min_y: -3.4, max_y: 3.4 },
+      { id: 3, x: 53.0, y: -3.2, vy: 0.32, radius: 0.55, min_y: -3.4, max_y: 3.4 },
+      { id: 4, x: 69.0, y: 3.2, vy: -0.38, radius: 0.55, min_y: -3.4, max_y: 3.4 }
+    ];
+
+    let isReplanned = true;
+    let replanCount = 4;
+    let totalCollisions = 0;
+
+    // --- 2. Mathematical Reference Trajectory & Multi-Obstacle Replanning ---
     function getReferencePose(x, replanActive) {
-      const kw = (2 * Math.PI) / 25.0;
-      let yRef = 2.0 * Math.sin(x * kw);
-      let dydx = 2.0 * kw * Math.cos(x * kw);
-      let d2ydx2 = -2.0 * kw * kw * Math.sin(x * kw);
+      // Extended warehouse corridor sinusoidal wave (wavelength = 28m)
+      const kw = (2 * Math.PI) / 28.0;
+      let yRef = 1.8 * Math.sin(x * kw);
+      let dydx = 1.8 * kw * Math.cos(x * kw);
+      let d2ydx2 = -1.8 * kw * kw * Math.sin(x * kw);
 
+      // Multi-Obstacle Gaussian Bypass Superposition
       if (replanActive && obstacles.length > 0) {
-        const obs = obstacles[0];
-        const detour = 2.2 * Math.exp(-Math.pow(x - obs.x, 2) / 10.0);
-        const dDetour = -detour * (2.0 * (x - obs.x) / 10.0);
-        yRef += detour;
-        dydx += dDetour;
+        for (const obs of obstacles) {
+          const dx = x - obs.x;
+          if (Math.abs(dx) < 6.0) {
+            // Evasive direction: dodge towards opposite side of the aisle
+            const side = (obs.y >= 0) ? -1 : 1;
+            const amp = 2.3 * side;
+            const detour = amp * Math.exp(-Math.pow(dx, 2) / 8.5);
+            const dDetour = -detour * (2.0 * dx / 8.5);
+            yRef += detour;
+            dydx += dDetour;
+          }
+        }
       }
 
       const yawRef = Math.atan2(dydx, 1.0);
@@ -281,9 +321,9 @@
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x090d16);
-    scene.fog = new THREE.FogExp2(0x090d16, 0.015);
+    scene.fog = new THREE.FogExp2(0x090d16, 0.012);
 
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 150);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 180);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -295,60 +335,60 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.02; // prevent going below ground
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
     controls.minDistance = 2.0;
-    controls.maxDistance = 60.0;
+    controls.maxDistance = 85.0;
 
-    // --- 4. 3D Lighting ---
-    const ambientLight = new THREE.AmbientLight(0x64748b, 0.85);
+    // --- 4. 3D Lighting (Extended along 85m) ---
+    const ambientLight = new THREE.AmbientLight(0x64748b, 0.9);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.5);
-    dirLight.position.set(20, 25, 15);
+    const dirLight = new THREE.DirectionalLight(0xfff7ed, 1.6);
+    dirLight.position.set(40, 35, 20);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 70;
-    dirLight.shadow.camera.left = -25;
-    dirLight.shadow.camera.right = 25;
-    dirLight.shadow.camera.top = 15;
-    dirLight.shadow.camera.bottom = -15;
+    dirLight.shadow.camera.far = 110;
+    dirLight.shadow.camera.left = -50;
+    dirLight.shadow.camera.right = 50;
+    dirLight.shadow.camera.top = 20;
+    dirLight.shadow.camera.bottom = -20;
     scene.add(dirLight);
 
-    // Warehouse overhead high-bay point lights
-    for (let xPos = 0; xPos <= 40; xPos += 10) {
-      const highBayLight = new THREE.PointLight(0x38bdf8, 0.7, 18);
-      highBayLight.position.set(xPos, 8.0, 0);
+    // Warehouse overhead high-bay point lights along the entire 80m corridor
+    for (let xPos = 0; xPos <= 80; xPos += 8) {
+      const highBayLight = new THREE.PointLight(0x38bdf8, 0.75, 18);
+      highBayLight.position.set(xPos, 8.5, 0);
       scene.add(highBayLight);
 
       // Light fixture visual
       const fixture = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.3, 0.5, 0.2, 16),
+        new THREE.CylinderGeometry(0.35, 0.55, 0.22, 16),
         new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
       );
-      fixture.position.set(xPos, 8.0, 0);
+      fixture.position.set(xPos, 8.5, 0);
       scene.add(fixture);
     }
 
-    // --- 5. Warehouse Floor & Safety Lane Markings ---
-    const floorGeo = new THREE.PlaneGeometry(60, 24);
+    // --- 5. Extended Warehouse Floor (95m x 24m) & Markings ---
+    const floorGeo = new THREE.PlaneGeometry(95, 24);
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
-      roughness: 0.6,
+      roughness: 0.65,
       metalness: 0.2
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.position.set(18, 0, 0);
+    floor.position.set(38, 0, 0);
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Grid Floor Helper
-    const gridHelper = new THREE.GridHelper(60, 60, 0x334155, 0x1e293b);
-    gridHelper.position.set(18, 0.01, 0);
+    // Grid Floor Helper spanning 95 meters
+    const gridHelper = new THREE.GridHelper(95, 95, 0x334155, 0x1e293b);
+    gridHelper.position.set(38, 0.01, 0);
     scene.add(gridHelper);
 
-    // Safety yellow floor hazard boundary stripes
+    // Safety yellow floor hazard boundary stripes along the entire length
     function createSafetyLine(x, y, len) {
       const lineGeo = new THREE.PlaneGeometry(len, 0.12);
       const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
@@ -357,10 +397,10 @@
       line.rotation.x = -Math.PI / 2;
       scene.add(line);
     }
-    createSafetyLine(18, 2.6, 50);
-    createSafetyLine(18, -2.6, 50);
+    createSafetyLine(38, 2.6, 92);
+    createSafetyLine(38, -2.6, 92);
 
-    // --- 6. 3D Warehouse Storage Racks ---
+    // --- 6. 3D Warehouse Storage Racks (22 Multi-Tier Racks) ---
     function createWarehouseRack(x, y) {
       const rackGroup = new THREE.Group();
       const frameMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.4 });
@@ -368,7 +408,7 @@
       const palletMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 });
       const boxMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.9 });
 
-      const w = 5.5, d = 1.4, h = 4.0;
+      const w = 5.6, d = 1.4, h = 4.0;
 
       // 4 Upright steel pillars
       const pillarGeo = new THREE.BoxGeometry(0.12, h, 0.12);
@@ -392,7 +432,6 @@
           pallet.castShadow = true;
           rackGroup.add(pallet);
 
-          // Cardboard boxes
           const box = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 1.0), boxMat);
           box.position.set(bx, tierY + 0.52, 0);
           box.castShadow = true;
@@ -404,18 +443,18 @@
       scene.add(rackGroup);
     }
 
-    // Spawn 10 realistic warehouse racks along top and bottom aisles
-    for (let rx = 3; rx <= 36; rx += 7.0) {
+    // Line the entire 80m corridor with 22 storage racks on north & south walls
+    for (let rx = 3.0; rx <= 76.0; rx += 6.8) {
       createWarehouseRack(rx, 4.0);
       createWarehouseRack(rx, -4.0);
     }
 
-    // --- 7. Loading Bays (3D visual docking pads) ---
+    // --- 7. Loading Bays (3D Visual Docking Platforms up to 75m) ---
     const bayMarkers = {};
     for (const [id, d] of Object.entries(destinations)) {
       const bayGroup = new THREE.Group();
       // Glowing floor ring
-      const ringGeo = new THREE.RingGeometry(0.8, 1.0, 32);
+      const ringGeo = new THREE.RingGeometry(0.8, 1.05, 32);
       const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = -Math.PI / 2;
@@ -423,14 +462,14 @@
       bayGroup.add(ring);
 
       // Docking platform pad
-      const padGeo = new THREE.BoxGeometry(1.8, 0.05, 1.4);
-      const padMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.5 });
+      const padGeo = new THREE.BoxGeometry(2.0, 0.06, 1.6);
+      const padMat = new THREE.MeshStandardMaterial({ color: (id == 4 ? 0x10b981 : 0x0284c7), roughness: 0.5 });
       const pad = new THREE.Mesh(padGeo, padMat);
-      pad.position.y = 0.025;
+      pad.position.y = 0.03;
       pad.receiveShadow = true;
       bayGroup.add(pad);
 
-      bayGroup.position.set(d.x, 0, -d.y); // note: 3D Z axis = -2D Y axis
+      bayGroup.position.set(d.x, 0, -d.y);
       scene.add(bayGroup);
       bayMarkers[id] = bayGroup;
     }
@@ -497,7 +536,7 @@
     agvGroup.add(lidarMount);
 
     // LiDAR Visual Laser Sweep Fan
-    const lidarFanGeo = new THREE.RingGeometry(0.2, 3.8, 32, 1, -Math.PI / 3, (2 * Math.PI) / 3);
+    const lidarFanGeo = new THREE.RingGeometry(0.2, 4.2, 32, 1, -Math.PI / 3, (2 * Math.PI) / 3);
     const lidarFanMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
@@ -524,50 +563,88 @@
 
     scene.add(agvGroup);
 
-    // --- 9. Dynamic 3D Obstacles ---
-    // A. 3D Pallet Blockage
-    const blockageGroup = new THREE.Group();
-    const blkPallet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 1.2), new THREE.MeshStandardMaterial({ color: 0x78350f }));
-    blkPallet.position.y = 0.075;
-    blockageGroup.add(blkPallet);
-    const blkBox = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.1), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.7 }));
-    blkBox.position.y = 0.7;
-    blkBox.castShadow = true;
-    blockageGroup.add(blkBox);
+    // --- 9. Multiple 3D Obstacles Setup ---
+    // A. 3D Static Obstacles Meshes Container
+    const staticObstacleMeshes = [];
 
-    // Safety Halo on Floor
-    const haloGeo = new THREE.RingGeometry(0.9, 1.05, 32);
-    const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
-    const halo = new THREE.Mesh(haloGeo, haloMat);
-    halo.rotation.x = -Math.PI / 2;
-    halo.position.y = 0.02;
-    blockageGroup.add(halo);
+    function spawn3DStaticObstacle(obs) {
+      const group = new THREE.Group();
 
-    blockageGroup.visible = false;
-    scene.add(blockageGroup);
+      if (obs.type === 'pallet' || obs.type === 'crates') {
+        const pallet = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.15, 1.2), new THREE.MeshStandardMaterial({ color: 0x78350f }));
+        pallet.position.y = 0.075;
+        group.add(pallet);
+        const box = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 1.0), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.7 }));
+        box.position.y = 0.65;
+        box.castShadow = true;
+        group.add(box);
+      } else if (obs.type === 'drums') {
+        // Oil drum cluster
+        const drumMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.7, roughness: 0.3 });
+        [[-0.25, -0.25], [0.25, -0.25], [0.0, 0.25]].forEach(([dx, dz]) => {
+          const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.9, 16), drumMat);
+          drum.position.set(dx, 0.45, dz);
+          drum.castShadow = true;
+          group.add(drum);
+        });
+      } else {
+        // Maintenance barrier
+        const barMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 });
+        const post = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 0.25), barMat);
+        post.position.y = 0.3;
+        post.castShadow = true;
+        group.add(post);
+      }
 
-    // B. 3D Crossing Forklift Model
-    const forkliftGroup = new THREE.Group();
-    const flBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 0.9), new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.3 }));
-    flBody.position.set(0, 0.45, 0);
-    flBody.castShadow = true;
-    forkliftGroup.add(flBody);
+      // Ground safety halo
+      const haloGeo = new THREE.RingGeometry(0.85, 1.0, 32);
+      const haloMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
+      const halo = new THREE.Mesh(haloGeo, haloMat);
+      halo.rotation.x = -Math.PI / 2;
+      halo.position.y = 0.02;
+      group.add(halo);
 
-    const flMast = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
-    flMast.position.set(0.95, 0.9, 0);
-    forkliftGroup.add(flMast);
+      group.position.set(obs.x, 0, -obs.y);
+      scene.add(group);
+      staticObstacleMeshes.push(group);
+    }
 
-    const flFork1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-    flFork1.position.set(1.4, 0.15, 0.2);
-    forkliftGroup.add(flFork1);
-    const flFork2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0x475569 }));
-    flFork2.position.set(1.4, 0.15, -0.2);
-    forkliftGroup.add(flFork2);
+    function renderAllStaticObstacles() {
+      staticObstacleMeshes.forEach(m => scene.remove(m));
+      staticObstacleMeshes.length = 0;
+      obstacles.forEach(spawn3DStaticObstacle);
+    }
+    renderAllStaticObstacles();
 
-    forkliftGroup.visible = false;
-    scene.add(forkliftGroup);
+    // B. 4 Crossing Dynamic Forklifts Meshes
+    const forkliftMeshes = [];
+    forklifts.forEach((fl, idx) => {
+      const flGroup = new THREE.Group();
+      // Body
+      const flBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 0.9), new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.3 }));
+      flBody.position.set(0, 0.45, 0);
+      flBody.castShadow = true;
+      flGroup.add(flBody);
 
-    // --- 10. 3D Trajectory Ribbons & MPC Horizon ---
+      // Mast
+      const flMast = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0x1e293b }));
+      flMast.position.set(0.95, 0.9, 0);
+      flGroup.add(flMast);
+
+      // Forks
+      const flFork1 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+      flFork1.position.set(1.4, 0.15, 0.2);
+      flGroup.add(flFork1);
+      const flFork2 = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.1), new THREE.MeshStandardMaterial({ color: 0x475569 }));
+      flFork2.position.set(1.4, 0.15, -0.2);
+      flGroup.add(flFork2);
+
+      flGroup.position.set(fl.x, 0, -fl.y);
+      scene.add(flGroup);
+      forkliftMeshes.push(flGroup);
+    });
+
+    // --- 10. 3D Trajectory Ribbons & Horizon ---
     let refPathLine = null;
     let trailLine = null;
     let horizonLine = null;
@@ -599,9 +676,9 @@
     trailLine = new THREE.Line(trailGeom, trailMat);
     scene.add(trailLine);
 
-    // MPC Horizon Rollout (Green nodes floating in 3D)
+    // MPC Horizon Rollout
     const horizonGeom = new THREE.BufferGeometry();
-    const horizonMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 2 });
+    const horizonMat = new THREE.LineBasicMaterial({ color: 0x10b981, linewidth: 2.5 });
     horizonLine = new THREE.Line(horizonGeom, horizonMat);
     scene.add(horizonLine);
 
@@ -610,27 +687,32 @@
       const target = destinations[destId];
       const distToGoal = Math.hypot(veh.x - target.x, veh.y - target.y);
 
-      if (distToGoal < 0.12 && simTime > 2.0) {
+      // Destination reached check
+      if (distToGoal < 0.15 && simTime > 2.0) {
         isRunning = false;
         document.getElementById('play-text').textContent = 'Completed';
         document.getElementById('play-icon').textContent = '✓';
         document.getElementById('hud-status').textContent = 'DESTINATION REACHED';
         document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm';
-        showToast('🎯 DESTINATION REACHED WITH HIGH ACCURACY!');
+        showToast(`🎯 DESTINATION REACHED: ${target.name} (${target.x}m)`);
         return;
       }
 
-      // Moving forklift animation
-      if (forkliftActive) {
-        forkliftObj.y += forkliftObj.vy * dt;
-        if (forkliftObj.y > 3.5 || forkliftObj.y < -3.5) forkliftObj.vy *= -1;
-        forkliftGroup.position.set(forkliftObj.x, 0, -forkliftObj.y);
+      // Animate 4 Crossing Forklifts
+      if (forkliftsActive) {
+        forklifts.forEach((fl, i) => {
+          fl.y += fl.vy * dt;
+          if (fl.y > fl.max_y || fl.y < fl.min_y) fl.vy *= -1;
+          forkliftMeshes[i].position.set(fl.x, 0, -fl.y);
+          // Orient forklift facing travel direction
+          forkliftMeshes[i].rotation.y = (fl.vy > 0) ? -Math.PI / 2 : Math.PI / 2;
+        });
       }
 
-      // Decelerate near goal
+      // Smooth deceleration near destination
       let currVRef = vNominal;
-      if (distToGoal < 3.0) {
-        currVRef = Math.max(0.2, (distToGoal / 3.0) * vNominal);
+      if (distToGoal < 4.0) {
+        currVRef = Math.max(0.25, (distToGoal / 4.0) * vNominal);
       }
 
       const ref = getReferencePose(veh.x, isReplanned);
@@ -673,7 +755,7 @@
       // Update 3D trail
       if (simStep % 2 === 0) {
         veh.trail.push(new THREE.Vector3(veh.x, 0.05, -veh.y));
-        if (veh.trail.length > 300) veh.trail.shift();
+        if (veh.trail.length > 500) veh.trail.shift();
         trailGeom.setFromPoints(veh.trail);
       }
 
@@ -681,7 +763,7 @@
       if (controller === 'MPC') {
         const hPoints = [];
         let hX = veh.x, hY = veh.y, hYaw = veh.yaw;
-        for (let k = 0; k < 12; k++) {
+        for (let k = 0; k < 14; k++) {
           const hr = getReferencePose(hX, isReplanned);
           const hDy = hY - hr.yRef;
           const hLat = Math.cos(hr.yawRef) * hDy;
@@ -698,21 +780,29 @@
         horizonLine.visible = false;
       }
 
-      // Check distance to obstacles
+      // Measure clearance to static obstacles and moving forklifts
       let minClear = 999.0;
       for (const obs of obstacles) {
         const d = Math.hypot(veh.x - obs.x, veh.y - obs.y) - (obs.radius + 0.35);
         if (d < minClear) minClear = Math.max(0.0, d);
       }
-      if (forkliftActive) {
-        const d = Math.hypot(veh.x - forkliftObj.x, veh.y - forkliftObj.y) - (forkliftObj.radius + 0.35);
-        if (d < minClear) minClear = Math.max(0.0, d);
+      if (forkliftsActive) {
+        for (const fl of forklifts) {
+          const d = Math.hypot(veh.x - fl.x, veh.y - fl.y) - (fl.radius + 0.35);
+          if (d < minClear) minClear = Math.max(0.0, d);
+        }
+      }
+
+      if (minClear <= 0.0) {
+        totalCollisions++;
+        document.getElementById('collision-counter').textContent = `${totalCollisions} Collisions`;
+        document.getElementById('collision-counter').className = 'text-red-400 font-bold font-mono animate-pulse';
       }
 
       simTime += dt;
       simStep += 1;
 
-      updateHUD(latError, yawError, steer, minClear, compTime);
+      updateHUD(latError, yawError, steer, minClear, compTime, target.x);
     }
 
     // --- 12. 3D Render & Camera Update Loop ---
@@ -727,12 +817,12 @@
 
       // Update 3D AGV position and orientation
       agvGroup.position.set(veh.x, 0, -veh.y);
-      agvGroup.rotation.y = veh.yaw; // Euler heading
+      agvGroup.rotation.y = veh.yaw;
 
-      // Front wheel steering pivot
+      // Front wheel steering angle
       frontSteerPivot.rotation.y = veh.steer;
 
-      // Rotate wheels with velocity
+      // Wheel rotation
       const wheelRoll = (veh.v * dt) / 0.16;
       rearLeftWheel.rotation.y += wheelRoll;
       rearRightWheel.rotation.y += wheelRoll;
@@ -742,26 +832,34 @@
       // Strobe beacon flash
       beaconLight.intensity = 0.5 + Math.sin(Date.now() * 0.015) * 0.7;
 
-      // LiDAR safety fan color shifts to red if obstacle is close
-      const isNear = (obstacles.length > 0 && Math.hypot(veh.x - obstacles[0].x, veh.y - obstacles[0].y) < 3.8);
-      lidarFan.material.color.setHex(isNear ? 0xef4444 : 0x38bdf8);
+      // LiDAR safety fan color shifts if any obstacle is close
+      let nearAlert = false;
+      for (const obs of obstacles) {
+        if (Math.hypot(veh.x - obs.x, veh.y - obs.y) < 4.0) nearAlert = true;
+      }
+      if (forkliftsActive) {
+        for (const fl of forklifts) {
+          if (Math.hypot(veh.x - fl.x, veh.y - fl.y) < 4.0) nearAlert = true;
+        }
+      }
+      lidarFan.material.color.setHex(nearAlert ? 0xef4444 : 0x38bdf8);
 
       // Camera Modes
       if (activeCamera === 'chase') {
-        const camDist = 5.8;
-        const camHeight = 3.2;
+        const camDist = 6.2;
+        const camHeight = 3.4;
         const camX = veh.x - camDist * Math.cos(veh.yaw);
         const camZ = -veh.y + camDist * Math.sin(veh.yaw);
         camera.position.lerp(new THREE.Vector3(camX, camHeight, camZ), 0.1);
-        camera.lookAt(veh.x + 3.0 * Math.cos(veh.yaw), 0.8, -veh.y - 3.0 * Math.sin(veh.yaw));
+        camera.lookAt(veh.x + 3.2 * Math.cos(veh.yaw), 0.9, -veh.y - 3.2 * Math.sin(veh.yaw));
       } else if (activeCamera === 'top') {
-        camera.position.lerp(new THREE.Vector3(veh.x + 4.0, 22.0, -veh.y), 0.1);
-        camera.lookAt(veh.x + 4.0, 0, -veh.y);
+        // Overhead camera tracks vehicle along the 75m corridor
+        camera.position.lerp(new THREE.Vector3(veh.x + 5.0, 26.0, -veh.y), 0.1);
+        camera.lookAt(veh.x + 5.0, 0, -veh.y);
       } else if (activeCamera === 'bumper') {
         camera.position.set(veh.x + 1.45 * Math.cos(veh.yaw), 0.55, -veh.y - 1.45 * Math.sin(veh.yaw));
         camera.lookAt(veh.x + 10.0 * Math.cos(veh.yaw), 0.3, -veh.y - 10.0 * Math.sin(veh.yaw));
       } else {
-        // Orbit mode controlled by user
         controls.update();
       }
 
@@ -770,8 +868,9 @@
     animate();
 
     // --- 13. UI & HUD Updates ---
-    function updateHUD(latErr, yawErr, steer, clearance, compTime) {
+    function updateHUD(latErr, yawErr, steer, clearance, compTime, totalTargetX) {
       document.getElementById('hud-time').textContent = simTime.toFixed(2) + 's';
+      document.getElementById('hud-dist').textContent = `${veh.x.toFixed(1)}m / ${totalTargetX.toFixed(1)}m`;
       document.getElementById('hud-val-speed').textContent = veh.v.toFixed(2) + ' m/s';
       document.getElementById('hud-val-solver').textContent = compTime.toFixed(1) + ' ms';
 
@@ -812,17 +911,17 @@
       const toast = document.getElementById('event-toast');
       document.getElementById('event-toast-msg').textContent = msg;
       toast.style.opacity = '1';
-      setTimeout(() => { toast.style.opacity = '0'; }, 2400);
+      setTimeout(() => { toast.style.opacity = '0'; }, 2500);
     }
 
     function resetSimulation() {
       simTime = 0.0;
       simStep = 0;
-      isReplanned = false;
-      obstacles = [];
-      blockageGroup.visible = false;
+      totalCollisions = 0;
+      document.getElementById('collision-counter').textContent = '0 Collisions';
+      document.getElementById('collision-counter').className = 'text-emerald-400 font-bold font-mono';
 
-      const ref0 = getReferencePose(0, false);
+      const ref0 = getReferencePose(0, isReplanned);
       veh = {
         x: 0.0,
         y: 0.0,
@@ -853,7 +952,7 @@
 
     document.getElementById('btn-reset').addEventListener('click', resetSimulation);
 
-    // Camera Mode Switching
+    // Camera Switcher
     document.querySelectorAll('.cam-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.cam-btn').forEach(b => {
@@ -863,7 +962,7 @@
         activeCamera = btn.dataset.cam;
         if (activeCamera === 'orbit') {
           controls.target.set(veh.x + 2, 0.5, -veh.y);
-          camera.position.set(veh.x - 6, 5, -veh.y + 7);
+          camera.position.set(veh.x - 7, 6, -veh.y + 8);
         }
       });
     });
@@ -875,8 +974,8 @@
       document.getElementById('btn-ctrl-stanley').className = 'py-1 rounded font-medium transition-all text-slate-400 hover:text-white';
       document.getElementById('hud-ctrl-mode').textContent = 'STEADYPATH MPC';
       document.getElementById('hud-ctrl-mode').className = 'font-bold text-blue-400 text-sm';
-      document.getElementById('ctrl-perf-label').textContent = '97% Precision';
-      showToast('SWITCHED TO STEADYPATH MPC (PREDICTIVE)');
+      document.getElementById('ctrl-perf-label').textContent = '97% Accuracy';
+      showToast('SWITCHED TO STEADYPATH MPC (PREDICTIVE PREVIEW)');
     });
 
     document.getElementById('btn-ctrl-stanley').addEventListener('click', () => {
@@ -895,34 +994,59 @@
         document.querySelectorAll('.dest-btn').forEach(b => {
           b.className = 'dest-btn py-1 rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-white';
         });
-        btn.className = 'dest-btn py-1 rounded border border-blue-500/40 bg-blue-600/30 text-blue-300 font-bold';
+        btn.className = 'dest-btn py-1 rounded border border-blue-500/50 bg-blue-600/30 text-blue-300 font-bold';
         destId = parseInt(btn.dataset.dest);
         buildTrajectoryRibbons();
-        showToast(`DESTINATION CHANGED → ${destinations[destId].name} (${destinations[destId].x}m)`);
+        showToast(`DESTINATION: ${destinations[destId].name} (${destinations[destId].x}m)`);
       });
     });
 
-    // Spawn Obstacle (Proof 2)
-    document.getElementById('btn-spawn-block').addEventListener('click', () => {
-      const dropX = Math.min(30, veh.x + 7.5);
-      obstacles = [{ x: dropX, y: 0.0, radius: 0.55 }];
+    // Spawn Obstacle Ahead
+    document.getElementById('btn-spawn-ahead').addEventListener('click', () => {
+      const dropX = Math.min(destinations[destId].x - 3.0, veh.x + 7.5);
+      const newObs = {
+        id: 'dyn_' + Date.now(),
+        x: dropX,
+        y: (Math.random() > 0.5 ? 0.5 : -0.5),
+        radius: 0.6,
+        type: 'crates',
+        label: 'BLOCKAGE'
+      };
+      obstacles.push(newObs);
       isReplanned = true;
       replanCount++;
-      blockageGroup.position.set(dropX, 0, 0);
-      blockageGroup.visible = true;
+      renderAllStaticObstacles();
       buildTrajectoryRibbons();
-      showToast(`CORRIDOR BLOCKED @ ${dropX.toFixed(1)}m → DYNAMIC REPLAN TRIGGERED!`);
+      document.getElementById('obs-count-badge').textContent = `${obstacles.length} Obstacles`;
+      showToast(`CORRIDOR BLOCKED @ ${dropX.toFixed(1)}m → EVASIVE REPLAN ACTIVE`);
     });
 
-    // Toggle Forklift
-    document.getElementById('btn-toggle-forklift').addEventListener('click', () => {
-      forkliftActive = !forkliftActive;
-      forkliftGroup.visible = forkliftActive;
-      document.getElementById('btn-forklift-text').textContent = forkliftActive ? 'Remove Forklift' : 'Add Crossing Forklift';
-      showToast(forkliftActive ? 'DYNAMIC CROSSING FORKLIFT ACTIVATED' : 'FORKLIFT REMOVED');
+    // Toggle 4 Crossing Forklifts
+    document.getElementById('btn-toggle-forklifts').addEventListener('click', () => {
+      forkliftsActive = !forkliftsActive;
+      forkliftMeshes.forEach(m => m.visible = forkliftsActive);
+      document.getElementById('btn-forklifts-label').textContent = forkliftsActive ? '4 Crossing Forklifts: ON' : 'Crossing Forklifts: OFF';
+      showToast(forkliftsActive ? '4 CROSSING FORKLIFTS ACTIVATED' : 'FORKLIFTS CLEARED');
     });
 
-    // Speed multiplier buttons
+    // Toggle Multi-Obstacle Course
+    document.getElementById('btn-toggle-course').addEventListener('click', () => {
+      courseActive = !courseActive;
+      if (courseActive) {
+        obstacles = [...staticObstaclesPreset];
+        document.getElementById('btn-course-label').textContent = 'Obstacle Course: ACTIVE';
+      } else {
+        obstacles = [];
+        document.getElementById('btn-course-label').textContent = 'Obstacle Course: OFF';
+      }
+      isReplanned = (obstacles.length > 0);
+      renderAllStaticObstacles();
+      buildTrajectoryRibbons();
+      document.getElementById('obs-count-badge').textContent = `${obstacles.length} Obstacles`;
+      showToast(courseActive ? 'MULTI-OBSTACLE COURSE RESTORED (4 BLOCKS)' : 'ALL STATIC OBSTACLES CLEARED');
+    });
+
+    // Speed Multipliers
     document.querySelectorAll('.speed-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.speed-btn').forEach(b => {
@@ -933,7 +1057,7 @@
       });
     });
 
-    // Window resize
+    // Window Resize
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
