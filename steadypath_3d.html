@@ -144,6 +144,20 @@
       </div>
     </div>
 
+    <!-- Continuous Auto-Loop Mission Mode -->
+    <div class="space-y-1 pt-1.5 border-t border-slate-800">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-slate-300">Continuous Auto-Loop</span>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="chk-autoloop" checked class="sr-only peer">
+          <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+        </label>
+      </div>
+      <p class="text-[10px] text-slate-400 leading-tight">
+        Continuously cycles logistics tours: unloads cargo at destination bay and automatically initiates the next mission.
+      </p>
+    </div>
+
     <!-- Speed Multiplier Slider -->
     <div class="space-y-1.5 pt-1 border-t border-slate-800">
       <div class="flex justify-between items-center text-xs">
@@ -324,6 +338,10 @@
     let speedMultiplier = 1.0;
     let forkliftsActive = true;
     let courseActive = true;
+    let autoLoop = true;
+    let dockDwellActive = false;
+    let dockDwellTime = 0.0;
+    let agvCargoMesh = null;
 
     // AGV Vehicle Physical State (Ackermann Bicycle Model)
     const veh = {
@@ -539,26 +557,28 @@
         name: 'Square Perimeter Patrol (Full 4-Corner Loop)',
         badge: 'Mission: Square Perimeter Loop',
         corners: [
-          [-22.0, -22.0],
-          [22.0, -22.0],
-          [22.0, 22.0],
-          [-22.0, 22.0],
-          [-22.0, -22.0]
+          [-24.5, -24.5],
+          [24.5, -24.5],
+          [24.5, 24.5],
+          [-24.5, 24.5],
+          [-24.5, -24.5]
         ],
-        R: 4.5
+        R: 4.0
       },
       slalom: {
         name: 'S-Curve Slalom Avoidance',
         badge: 'Mission: S-Curve Slalom',
         corners: [
           [-24.0, -16.0],
-          [-6.0, -16.0],
-          [-6.0, -8.0],
-          [8.0, -8.0],
-          [8.0, 8.0],
-          [24.0, 8.0]
+          [-10.0, -16.0],
+          [-10.0, -8.0],
+          [2.0, -8.0],
+          [2.0, 10.0],
+          [18.0, 10.0],
+          [18.0, 0.0],
+          [24.0, 0.0]
         ],
-        R: 4.0
+        R: 3.5
       }
     };
 
@@ -636,12 +656,12 @@
       }
     ];
 
-    // Static Floor Staging Items (Strictly in Side Staging Bays - ZERO in path!)
+    // Static Floor Hazards (in designated side alcoves with >2.4m clearance)
     const staticObstacles = [
-      { id: 'obs1', type: 'pallet_stack', x: -12.0, y: -12.2, label: 'STAGED PALLET BATCH' },
-      { id: 'obs2', type: 'cones', x: -2.0, y: -8.0, label: 'ALCOVE SAFETY CONES' },
-      { id: 'obs3', type: 'tool_cart', x: 10.0, y: 14.5, label: 'MAINTENANCE TOOL CART' },
-      { id: 'obs4', type: 'pallet_stack', x: 23.8, y: 1.0, label: 'EAST STAGED CRATES' }
+      { id: 'obs1', type: 'pallet_stack', x: -12.0, y: -11.5, label: 'STAGED PALLET BATCH' },
+      { id: 'obs2', type: 'cones', x: -3.0, y: 0.0, label: 'ALCOVE SAFETY CONES' },
+      { id: 'obs3', type: 'tool_cart', x: 10.0, y: 14.0, label: 'MAINTENANCE TOOL CART' },
+      { id: 'obs4', type: 'pallet_stack', x: 21.5, y: -2.0, label: 'EAST STAGED CRATES' }
     ];
 
     // --- 5. Three.js 3D Scene & Cube Warehouse Construction ---
@@ -970,33 +990,80 @@
       scene.add(bayGroup);
     }
 
-    // Block 1 (Southwest High-Bay): Leaves Central North Avenue (x = 6) and Inbound Lane (z = 16) completely open!
-    for (let rx = -20; rx <= -4; rx += 3.6) {
+    // Block 1 (Southwest High-Bay): Rows along X leaving Central North Ave and Perimeter Highway open
+    for (let rx = -20; rx <= -2; rx += 3.6) {
       createRackBay(rx, -4.0, false);
       createRackBay(rx, 4.0, false);
-      createRackBay(rx, -20.0, false);
     }
 
-    // Block 2 (Racks along x = 13.0): Leaves OPEN PORTAL for East Cross Highway (z in [-13.0, -7.0])!
-    [-22.0, -18.0, -14.5, -5.5, -2.0, 1.5].forEach(rz => {
+    // Block 2 (Central Spine along x = 13.0): Leaves 9.0m OPEN PORTAL for East Cross Highway (z in [-14.5, -5.5])
+    [-20.0, -16.0, -14.5, -5.5, -2.0, 1.5].forEach(rz => {
       createRackBay(13.0, rz, true);
     });
 
-    // Block 3 (Racks along East wall x = 26.0): Leaves OPEN DOCK for Outbound Bay 4 (z in [4.0, 12.0])!
+    // Block 3 (East Wall Logistics Zone along x = 26.0): Leaves OPEN DOCK for Outbound Bay 4 (z in [0.0, 14.0])
     [-20.0, -15.0, -10.0, -5.0, 0.0, 14.0, 18.0, 22.0].forEach(rz => {
       createRackBay(26.0, rz, true);
     });
 
-    // Staging Pallet Stacks (in safe side zones)
-    [-24.0, -12.0, 10.0, 22.0].forEach(sx => {
-      [10.0, -22.0].forEach(sz => {
-        for (let py = 0; py < 4; py++) {
-          const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.0), woodMat);
-          pal.position.set(sx, py * 0.13 + 0.06, sz);
-          scene.add(pal);
-        }
+    // --- Rich Side Storage Objects ("storage objects at the side") ---
+    // South Side Staging Line (z = 20.0, outside Inbound Highway lane)
+    [-20.0, -14.0, -8.0, -2.0].forEach(sx => {
+      for (let py = 0; py < 4; py++) {
+        const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.0), woodMat);
+        pal.position.set(sx, py * 0.13 + 0.06, 20.0);
+        pal.castShadow = true;
+        scene.add(pal);
+      }
+      const topCrate = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.65, 0.85), boxMat1);
+      topCrate.position.set(sx, 4 * 0.13 + 0.38, 20.0);
+      topCrate.castShadow = true;
+      scene.add(topCrate);
+    });
+
+    // North Side Staging Line (z = -15.0, outside East Crossway lane)
+    [8.0, 14.0, 17.0].forEach(sx => {
+      for (let py = 0; py < 4; py++) {
+        const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.0), woodMat);
+        pal.position.set(sx, py * 0.13 + 0.06, -15.0);
+        pal.castShadow = true;
+        scene.add(pal);
+      }
+      [-0.24, 0.24].forEach(dx => {
+        const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.75, 12), drumMat);
+        drum.position.set(sx + dx, 4 * 0.13 + 0.43, -15.0);
+        drum.castShadow = true;
+        scene.add(drum);
       });
     });
+
+    // West Loading Dock AGV Induction & Fast-Charging Station
+    const chargerGroup = new THREE.Group();
+    chargerGroup.position.set(-26.0, 0, 10.0);
+    const chargerBase = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.12, 2.2), new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 }));
+    chargerBase.position.y = 0.06;
+    chargerGroup.add(chargerBase);
+    const chargerPillar = new THREE.Mesh(new THREE.BoxGeometry(0.35, 1.8, 0.6), new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6 }));
+    chargerPillar.position.set(0, 0.9, -0.8);
+    chargerGroup.add(chargerPillar);
+    const chargerLight = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 2.0 }));
+    chargerLight.position.set(0, 1.7, -0.45);
+    chargerGroup.add(chargerLight);
+    scene.add(chargerGroup);
+
+    // East Logistics Dock Roller Conveyor Station
+    const conveyorGroup = new THREE.Group();
+    conveyorGroup.position.set(25.0, 0, -2.0);
+    const conveyorTable = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.75, 3.2), new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 }));
+    conveyorTable.position.y = 0.375;
+    conveyorGroup.add(conveyorTable);
+    for (let rz = -1.3; rz <= 1.3; rz += 0.35) {
+      const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.15, 8), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 }));
+      roller.position.set(0, 0.78, rz);
+      roller.rotation.z = Math.PI / 2;
+      conveyorGroup.add(roller);
+    }
+    scene.add(conveyorGroup);
 
     // Static Floor Obstacle Meshes (in designated side alcoves)
     function spawnStaticFloorObstacle(obs) {
@@ -1149,13 +1216,13 @@
       pal.position.set(0.6, 0.70, 0);
       group.add(pal);
 
-      const crate = new THREE.Mesh(
+      agvCargoMesh = new THREE.Mesh(
         new THREE.BoxGeometry(1.05, 0.65, 0.8),
         new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.4 })
       );
-      crate.position.set(0.6, 1.10, 0);
-      crate.castShadow = true;
-      group.add(crate);
+      agvCargoMesh.position.set(0.6, 1.10, 0);
+      agvCargoMesh.castShadow = true;
+      group.add(agvCargoMesh);
 
       const fanGeo = new THREE.CircleGeometry(5.2, 32, -Math.PI * 0.75, Math.PI * 1.5);
       lidarFanMat = new THREE.MeshBasicMaterial({
@@ -1255,16 +1322,60 @@
       const totalLen = currentPath.totalLength;
       const distRemaining = totalLen - pathProgress;
 
-      if (distRemaining <= 0.18) {
-        isRunning = false;
+      // --- Docking Dwell & Automatic Continuous Mission Looping ---
+      if (distRemaining <= 0.20) {
         veh.v = 0.0;
         veh.steer = 0.0;
-        document.getElementById('play-icon').textContent = '▶';
-        document.getElementById('play-text').textContent = 'Completed';
-        document.getElementById('hud-status').textContent = 'MISSION ACCOMPLISHED: BAY DOCKED';
-        document.getElementById('hud-status').className = 'font-bold text-emerald-400 text-sm animate-pulse';
-        showToast('Mission Accomplished: High-Precision Logistics Docking Complete!');
+
+        if (!dockDwellActive) {
+          dockDwellActive = true;
+          dockDwellTime = 0.0;
+          showToast('Bay Docked: High-Precision Cargo Transfer in Progress!');
+        }
+
+        dockDwellTime += dt;
+
+        // Visual pallet transfer animation: crate lifts and shifts onto the dock pad
+        if (agvCargoMesh) {
+          if (dockDwellTime < 1.5) {
+            agvCargoMesh.position.y = 1.10 + Math.sin(dockDwellTime * Math.PI / 1.5) * 0.25;
+            agvCargoMesh.position.x = 0.6 + (dockDwellTime / 1.5) * 0.45;
+          } else if (dockDwellTime < 3.0) {
+            agvCargoMesh.position.x = 1.05;
+            agvCargoMesh.position.y = 1.10;
+          } else {
+            agvCargoMesh.position.set(0.6, 1.10, 0);
+          }
+        }
+
+        const remainingDwell = Math.max(0, 3.5 - dockDwellTime);
+        const playIcon = document.getElementById('play-icon');
+        const playText = document.getElementById('play-text');
+        const hudStatus = document.getElementById('hud-status');
+
+        if (playIcon) playIcon.textContent = '↻';
+        if (playText) playText.textContent = autoLoop ? `Next Loop (${remainingDwell.toFixed(0)}s)` : 'Restart';
+        if (hudStatus) {
+          hudStatus.textContent = `[BAY DOCKED] CARGO TRANSFER COMPLETE - NEXT CYCLE IN ${remainingDwell.toFixed(1)}s`;
+          hudStatus.className = 'font-bold text-emerald-400 text-sm animate-pulse tracking-wide';
+        }
+
+        if (autoLoop && dockDwellTime >= 3.5) {
+          dockDwellActive = false;
+          dockDwellTime = 0.0;
+          setupMissionPath(currentMission);
+          simTime = 0.0;
+          isRunning = true;
+          if (playIcon) playIcon.textContent = '⏸';
+          if (playText) playText.textContent = 'Pause';
+          showToast('Mission Cycled: Beginning Return Logistics Tour');
+        } else if (!autoLoop && dockDwellTime >= 3.5) {
+          isRunning = false;
+        }
         return;
+      } else {
+        dockDwellActive = false;
+        dockDwellTime = 0.0;
       }
 
       // --- A. Dynamic Crossing Traffic Safety & Mutual Yielding ---
@@ -1277,19 +1388,21 @@
 
         const agvDistToCross1 = -2.0 - veh.y;
         const agvApproachingCross1 = (Math.abs(veh.x - 6.0) < 1.8 && agvDistToCross1 > 0.1 && agvDistToCross1 < 6.5);
-        const agvOccupyingCross1 = (Math.abs(veh.x - 6.0) < 2.0 && veh.y >= -4.8 && veh.y <= 1.2);
+        const agvOccupyingCross1 = (Math.abs(veh.x - 6.0) < 2.0 && veh.y >= -5.0 && veh.y <= 1.5);
 
         const fl1DistToCenter = Math.abs(fl1.x - 6.0);
         const fl1Approaching = (fl1.x < 6.0 && fl1.dir > 0) || (fl1.x > 6.0 && fl1.dir < 0);
         const fl1InZone = (fl1DistToCenter < 3.2) || (fl1DistToCenter < 5.2 && fl1Approaching);
 
-        if (agvOccupyingCross1) {
-          if (fl1DistToCenter >= 2.8) {
+        if (agvOccupyingCross1 || agvApproachingCross1) {
+          // If AGV is at or approaching crossing, Forklift holds outside the avenue (x <= 2.4 or x >= 9.6)
+          if ((fl1.dir > 0 && fl1.x <= 2.4) || (fl1.dir < 0 && fl1.x >= 9.6)) {
             fl1.holding = true;
+          } else if (fl1InZone) {
+            // Forklift is already in intersection: AGV yields and halts at STOP LINE
+            activeYieldVehicle = fl1;
+            fl1.holding = false;
           }
-        } else if (agvApproachingCross1 && fl1InZone) {
-          activeYieldVehicle = fl1;
-          fl1.holding = false;
         } else {
           fl1.holding = false;
         }
@@ -1319,19 +1432,20 @@
 
         const agvDistToCross2 = 13.0 - veh.x;
         const agvApproachingCross2 = (Math.abs(veh.y - 10.0) < 1.8 && agvDistToCross2 > 0.1 && agvDistToCross2 < 6.0);
-        const agvOccupyingCross2 = (Math.abs(veh.y - 10.0) < 2.0 && veh.x >= 10.2 && veh.x <= 15.2);
+        const agvOccupyingCross2 = (Math.abs(veh.y - 10.0) < 2.0 && veh.x >= 9.5 && veh.x <= 16.5);
 
         const fl2DistToCenter = Math.abs(fl2.y - 10.0);
         const fl2Approaching = (fl2.y < 10.0 && fl2.dir > 0) || (fl2.y > 10.0 && fl2.dir < 0);
         const fl2InZone = (fl2DistToCenter < 3.2) || (fl2DistToCenter < 5.0 && fl2Approaching);
 
-        if (agvOccupyingCross2) {
-          if (fl2DistToCenter >= 2.8) {
+        if (agvOccupyingCross2 || agvApproachingCross2) {
+          // If AGV is at or approaching crossing, Tugger holds outside the avenue (y <= 6.4 or y >= 13.6)
+          if ((fl2.dir > 0 && fl2.y <= 6.4) || (fl2.dir < 0 && fl2.y >= 13.6)) {
             fl2.holding = true;
+          } else if (fl2InZone) {
+            activeYieldVehicle = fl2;
+            fl2.holding = false;
           }
-        } else if (agvApproachingCross2 && fl2InZone) {
-          activeYieldVehicle = fl2;
-          fl2.holding = false;
         } else {
           fl2.holding = false;
         }
@@ -1355,11 +1469,12 @@
           }
         }
 
-        // Hard distance barrier
+        // Mutual Hard Safety Separation: ZERO CLIPPING & ZERO PENETRATION
         forklifts.forEach(fl => {
           const directDist = Math.hypot(veh.x - fl.x, veh.y - fl.y);
-          if (directDist < 2.6) {
+          if (directDist < 3.2) {
             fl.holding = true;
+            activeYieldVehicle = fl; // BOTH machines clamp velocity to 0.0 m/s!
           }
         });
       }
@@ -1700,7 +1815,26 @@
     }
 
     // --- 13. UI Event Listeners ---
+    const chkAutoLoop = document.getElementById('chk-autoloop');
+    if (chkAutoLoop) {
+      chkAutoLoop.addEventListener('change', (e) => {
+        autoLoop = e.target.checked;
+        showToast(`Continuous Auto-Loop: ${autoLoop ? 'Enabled' : 'Disabled'}`);
+      });
+    }
+
     document.getElementById('btn-play-pause').addEventListener('click', () => {
+      if (currentPath && (currentPath.totalLength - pathProgress) <= 0.25) {
+        setupMissionPath(currentMission);
+        dockDwellActive = false;
+        dockDwellTime = 0.0;
+        simTime = 0.0;
+        isRunning = true;
+        document.getElementById('play-icon').textContent = '⏸';
+        document.getElementById('play-text').textContent = 'Pause';
+        showToast('Mission Restarted from Start Dock');
+        return;
+      }
       isRunning = !isRunning;
       document.getElementById('play-icon').textContent = isRunning ? '⏸' : '▶';
       document.getElementById('play-text').textContent = isRunning ? 'Pause' : 'Resume';
