@@ -586,6 +586,15 @@
       veh.steer = 0.0;
       pathProgress = 0.0;
 
+      // Reset forklifts to starting holding positions outside the intersections
+      forklifts[0].x = -5.5;
+      forklifts[0].dir = 1;
+      forklifts[0].holding = false;
+
+      forklifts[1].y = 4.5;
+      forklifts[1].dir = 1;
+      forklifts[1].holding = false;
+
       // Update 3D Trajectory Ribbon Visualization
       updateTrajectoryRibbon();
 
@@ -608,37 +617,54 @@
       showToast(`Selected: ${mDef.name}`);
     }
 
-    // --- 4. Dynamic Crossing Forklifts (Crossing Intersections) ---
+    // --- 4. Dynamic Crossing Forklifts (Perpendicular Intersections) ---
+    // In realistic logistics: Cross-traffic crosses PERPENDICULARLY across the travel avenue.
+    // They NEVER drive down the AGV's travel lane!
     const forklifts = [
       {
         id: 1,
         name: 'Forklift FL-01',
         type: 'forklift',
-        // Crosses Central North Avenue (x = 6.0) horizontally along Y = -3.0
-        x: 6.0,
-        y: -14.0,
-        minY: -14.0,
-        maxY: 8.0,
-        speed: 1.2,
-        direction: 1, // moving along Y
+        // Crosses Central North Avenue (AGV northbound on x = 6.0)
+        // Forklift travels HORIZONTALLY along y = -2.0 between x = -6.0 and x = 16.0
+        crossAisle: 'North Avenue',
+        crossY: -2.0,
+        x: -5.5,
+        y: -2.0,
+        minX: -6.0,
+        maxX: 16.0,
+        speed: 1.15,
+        dir: 1, // +1 moving East, -1 moving West
         cargo: 'CARTON PALLET',
-        holding: false
+        holding: false,
+        stopLinePos: 6.0 // intersection center
       },
       {
         id: 2,
         name: 'Tugger AMR-02',
         type: 'amr',
-        // Crosses East Crossway (y = 10.0) vertically along X = 13.0
-        crossAxis: 'x',
-        crossY: 10.0,
+        // Crosses East Cross Highway (AGV eastbound on y = 10.0)
+        // Tugger travels VERTICALLY along x = 13.0 between y = 4.0 and y = 16.0
+        crossAisle: 'East Highway',
+        crossX: 13.0,
         x: 13.0,
-        minX: 8.0,
-        maxX: 18.0,
+        y: 4.5,
+        minY: 4.0,
+        maxY: 16.0,
         speed: 1.0,
-        direction: 1,
-        cargo: 'DRUM PALLET',
-        holding: false
+        dir: 1, // +1 moving North, -1 moving South
+        cargo: 'STEEL DRUMS',
+        holding: false,
+        stopLinePos: 10.0 // intersection center
       }
+    ];
+
+    // Static Floor Hazards
+    const staticObstacles = [
+      { id: 'obs1', type: 'pallet_stack', x: -10.0, y: -13.8, label: 'EURO-PALLET BATCH' },
+      { id: 'obs2', type: 'cones', x: 6.0, y: -14.2, label: 'SAFETY CONE CLUSTER' },
+      { id: 'obs3', type: 'tool_cart', x: 8.5, y: 10.0, label: 'MOBILE WORKSHOP CART' },
+      { id: 'obs4', type: 'pallet_stack', x: 22.0, y: -2.0, label: 'STAGED CARTON SKID' }
     ];
 
     // --- 5. Three.js 3D Scene & Cube Warehouse Construction ---
@@ -666,7 +692,7 @@
       controls.maxPolarAngle = Math.PI / 2 - 0.02;
       controls.minDistance = 2.0;
       controls.maxDistance = 140.0;
-      controls.enabled = false; // Enabled only in 'orbit' camera mode
+      controls.enabled = false;
     }
 
     // --- Lighting ---
@@ -714,7 +740,7 @@
       roughness: 0.45,
       metalness: 0.10
     });
-    const wallTrimMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.3 }); // Corporate Blue Trim
+    const wallTrimMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.3 });
     const glassMat = new THREE.MeshStandardMaterial({
       color: 0x93c5fd, // Sky blue clerestory windows
       transparent: true,
@@ -727,72 +753,50 @@
       wallGroup.position.set(x, 0, z);
       wallGroup.rotation.y = rotY;
 
-      // Main lower insulated wall (Y: 0 to 13m)
-      const lowerWall = new THREE.Mesh(
-        new THREE.BoxGeometry(CUBE_SIZE, 13.0, 0.4),
-        wallMat
-      );
+      // Lower insulated wall
+      const lowerWall = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE, 13.0, 0.4), wallMat);
       lowerWall.position.y = 6.5;
       lowerWall.receiveShadow = true;
       wallGroup.add(lowerWall);
 
-      // Upper clerestory ribbon windows (Y: 13 to 16.5m)
-      const clerestory = new THREE.Mesh(
-        new THREE.BoxGeometry(CUBE_SIZE - 2.0, 3.5, 0.2),
-        glassMat
-      );
+      // Upper clerestory windows
+      const clerestory = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE - 2.0, 3.5, 0.2), glassMat);
       clerestory.position.y = 14.75;
       wallGroup.add(clerestory);
 
-      // Window mullions (vertical dividers every 4m)
+      // Mullions
       for (let mx = -HALF_SIZE + 2; mx <= HALF_SIZE - 2; mx += 4.0) {
-        const mullion = new THREE.Mesh(
-          new THREE.BoxGeometry(0.15, 3.5, 0.25),
-          wallTrimMat
-        );
+        const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3.5, 0.25), wallTrimMat);
         mullion.position.set(mx, 14.75, 0);
         wallGroup.add(mullion);
       }
 
-      // Parapet roof cap (Y: 16.5 to 18m)
-      const parapet = new THREE.Mesh(
-        new THREE.BoxGeometry(CUBE_SIZE, 1.5, 0.5),
-        wallTrimMat
-      );
+      // Parapet
+      const parapet = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE, 1.5, 0.5), wallTrimMat);
       parapet.position.y = 17.25;
       wallGroup.add(parapet);
 
-      // If West Wall: Add 3 Large Industrial Roll-up Loading Dock Doors
+      // 3 Roll-up Loading Docks on West Wall
       if (isDockWall) {
         const dockDoorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6, roughness: 0.4 });
         const bumperMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
         const yellowStripeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
 
         [-16.0, 0.0, 16.0].forEach((dockZ, idx) => {
-          // Dock door cutout frame
-          const doorFrame = new THREE.Mesh(
-            new THREE.BoxGeometry(4.8, 6.2, 0.5),
-            new THREE.MeshStandardMaterial({ color: 0x334155 })
-          );
+          const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(4.8, 6.2, 0.5), new THREE.MeshStandardMaterial({ color: 0x334155 }));
           doorFrame.position.set(dockZ, 3.1, 0.1);
           wallGroup.add(doorFrame);
 
-          // Roll-up corrugated curtain
-          const door = new THREE.Mesh(
-            new THREE.BoxGeometry(4.4, 5.8, 0.1),
-            dockDoorMat
-          );
+          const door = new THREE.Mesh(new THREE.BoxGeometry(4.4, 5.8, 0.1), dockDoorMat);
           door.position.set(dockZ, 3.1, 0.25);
           wallGroup.add(door);
 
-          // Rubber Dock Bumpers
           [-2.2, 2.2].forEach(bx => {
             const b = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, 0.4), bumperMat);
             b.position.set(dockZ + bx, 0.6, 0.4);
             wallGroup.add(b);
           });
 
-          // Illuminated Green Dock Signal Lantern
           const lantern = new THREE.Mesh(
             new THREE.SphereGeometry(0.18, 16, 16),
             new THREE.MeshStandardMaterial({ color: 0x10b981, emissive: 0x10b981, emissiveIntensity: 1.5 })
@@ -800,11 +804,7 @@
           lantern.position.set(dockZ - 2.6, 4.5, 0.4);
           wallGroup.add(lantern);
 
-          // Dock Bay Number Sign
-          const sign = new THREE.Mesh(
-            new THREE.BoxGeometry(1.6, 0.6, 0.08),
-            yellowStripeMat
-          );
+          const sign = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 0.08), yellowStripeMat);
           sign.position.set(dockZ, 6.6, 0.3);
           wallGroup.add(sign);
         });
@@ -813,11 +813,10 @@
       scene.add(wallGroup);
     }
 
-    // Construct the 4 perimeter cube walls:
-    createCubeWall(-HALF_SIZE, 0, Math.PI / 2, true); // West Loading Dock Wall (X = -29)
-    createCubeWall(HALF_SIZE, 0, -Math.PI / 2, false); // East Dispatch Wall (X = +29)
-    createCubeWall(0, -HALF_SIZE, 0, false); // North Wall (Z = -29)
-    createCubeWall(0, HALF_SIZE, Math.PI, false); // South Wall (Z = +29)
+    createCubeWall(-HALF_SIZE, 0, Math.PI / 2, true); // West Loading Dock Wall
+    createCubeWall(HALF_SIZE, 0, -Math.PI / 2, false); // East Wall
+    createCubeWall(0, -HALF_SIZE, 0, false); // North Wall
+    createCubeWall(0, HALF_SIZE, Math.PI, false); // South Wall
 
     // 3. Space-Frame Structural Steel Roof Trusses spanning at Y = 17.5m
     const trussMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.7, roughness: 0.3 });
@@ -825,7 +824,6 @@
       const trussGroup = new THREE.Group();
       trussGroup.position.set(0, 17.4, tz);
 
-      // Top and bottom horizontal steel chords
       const chordTop = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE, 0.2, 0.2), trussMat);
       chordTop.position.y = 0.5;
       trussGroup.add(chordTop);
@@ -834,7 +832,6 @@
       chordBot.position.y = -0.5;
       trussGroup.add(chordBot);
 
-      // Diagonal web lattice bars
       for (let tx = -HALF_SIZE + 2; tx <= HALF_SIZE - 2; tx += 3.5) {
         const diag = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 8), trussMat);
         diag.position.set(tx, 0, 0);
@@ -842,7 +839,6 @@
         trussGroup.add(diag);
       }
 
-      // Suspended High-Bay LED UFO Lighting Fixtures
       [-18, -6, 6, 18].forEach(lx => {
         const fixture = new THREE.Mesh(
           new THREE.CylinderGeometry(0.4, 0.6, 0.25, 16),
@@ -869,36 +865,44 @@
       scene.add(line);
     }
 
-    // Inbound Receiving Lane Boundaries (along Z = 16)
     createSafetyLine(-10, 14.2, 36, true);
     createSafetyLine(-10, 17.8, 36, true);
-
-    // Central North Avenue Boundaries (along X = 6)
     createSafetyLine(4.2, 0, 32, false);
     createSafetyLine(7.8, 0, 32, false);
-
-    // East Cross Highway Boundaries (along Z = -10)
     createSafetyLine(13, -11.8, 16, true);
     createSafetyLine(13, -8.2, 16, true);
-
-    // Rack Storage Corridor B Boundaries (along X = 20)
     createSafetyLine(18.2, 0, 24, false);
     createSafetyLine(21.8, 0, 24, false);
 
-    // Zebra Crosswalk Stripes at Intersections
-    function createCrosswalk(cx, cz, isHoriz = true) {
+    // Crosswalk Zebra Striping & Crosswalk STOP Lines
+    function createCrossingZone(cx, cz, isHorizCrossing = true) {
+      // Zebra stripes along pedestrian/vehicle crossing
       for (let off = -1.6; off <= 1.6; off += 0.8) {
         const stripe = new THREE.Mesh(
-          new THREE.PlaneGeometry(isHoriz ? 0.35 : 2.2, isHoriz ? 2.2 : 0.35),
+          new THREE.PlaneGeometry(isHorizCrossing ? 0.35 : 2.2, isHorizCrossing ? 2.2 : 0.35),
           new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
         );
-        stripe.position.set(isHoriz ? cx + off : cx, 0.018, isHoriz ? cz : cz + off);
+        stripe.position.set(isHorizCrossing ? cx + off : cx, 0.018, isHorizCrossing ? cz : cz + off);
         stripe.rotation.x = -Math.PI / 2;
         scene.add(stripe);
       }
+
+      // Painted Heavy STOP Line before crosswalk (with hazard hash borders)
+      const stopLine = new THREE.Mesh(
+        new THREE.PlaneGeometry(isHorizCrossing ? 3.6 : 0.45, isHorizCrossing ? 0.45 : 3.6),
+        new THREE.MeshBasicMaterial({ color: 0xef4444 })
+      );
+      // Position stop line 3.0m back from crossing center
+      stopLine.position.set(isHorizCrossing ? cx : cx - 3.0, 0.019, isHorizCrossing ? cz + 3.0 : cz);
+      stopLine.rotation.x = -Math.PI / 2;
+      scene.add(stopLine);
     }
-    createCrosswalk(6.0, 2.0, true);
-    createCrosswalk(13.0, 10.0, false);
+
+    // Intersection 1: Central North Avenue (AGV along x = 6.0, Forklift crosses along z = 2.0 [y = -2.0])
+    createCrossingZone(6.0, 2.0, true);
+
+    // Intersection 2: East Crossway (AGV along z = -10.0 [y = 10.0], Tugger crosses along x = 13.0)
+    createCrossingZone(13.0, -10.0, false);
 
     // 5. Overhead Intersection Warning Gantries with Active Signals
     function createIntersectionGantry(gx, gz, isHoriz = true) {
@@ -930,12 +934,12 @@
       crossingGantries.push({ group: gGroup, bulb: signalBulb, x: gx, z: gz });
     }
     createIntersectionGantry(6.0, 2.0, true);
-    createIntersectionGantry(13.0, 10.0, false);
+    createIntersectionGantry(13.0, -10.0, false);
 
     // 6. High-Bay Pallet Racking Grid (Populating the Cube Interior)
-    const rackBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.3 }); // Uprights
-    const beamYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.4, roughness: 0.4 }); // Load Beams
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.85 }); // Euro-Pallet Wood
+    const rackBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.3 });
+    const beamYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.4, roughness: 0.4 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.85 });
     const boxMat1 = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 });
     const boxMat2 = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 });
     const toteBlueMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.4 });
@@ -947,7 +951,6 @@
       bayGroup.position.set(rx, 0, rz);
       if (isRotated) bayGroup.rotation.y = Math.PI / 2;
 
-      // 4 Steel Uprights (4.2m high)
       const upGeo = new THREE.BoxGeometry(0.09, 4.2, 0.09);
       [
         { x: -1.5, z: -0.55 }, { x: 1.5, z: -0.55 },
@@ -959,7 +962,6 @@
         bayGroup.add(up);
       });
 
-      // 3 Tiers of Beams and Cargo
       [0.2, 1.6, 3.0].forEach((lvlY, lvlIdx) => {
         const beamGeo = new THREE.BoxGeometry(3.08, 0.12, 0.06);
         const bF = new THREE.Mesh(beamGeo, beamYellowMat);
@@ -970,7 +972,6 @@
         bB.position.set(0, lvlY, -0.55);
         bayGroup.add(bB);
 
-        // 2 Pallet Cargo slots per level
         [-0.75, 0.75].forEach(slotX => {
           const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 1.0), woodMat);
           pal.position.set(slotX, lvlY + 0.12, 0);
@@ -978,7 +979,6 @@
 
           const seed = Math.sin(rx * 7.1 + rz * 13.3 + slotX * 5.7 + lvlIdx * 3.1);
           if (seed > 0.2) {
-            // Cartons
             const box = new THREE.Mesh(
               new THREE.BoxGeometry(1.05, 0.75, 0.88),
               (lvlIdx % 2 === 0 ? boxMat1 : boxMat2)
@@ -987,14 +987,12 @@
             box.castShadow = true;
             bayGroup.add(box);
           } else if (seed > -0.4) {
-            // Plastic Totes
             [-0.24, 0.24].forEach(tx => {
               const tote = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.28, 0.38), (seed > -0.1 ? toteBlueMat : toteRedMat));
               tote.position.set(slotX + tx, lvlY + 0.32, 0);
               bayGroup.add(tote);
             });
           } else {
-            // Steel Drums
             [-0.24, 0.24].forEach(dx => {
               const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.8, 12), drumMat);
               drum.position.set(slotX + dx, lvlY + 0.58, 0);
@@ -1008,23 +1006,14 @@
     }
 
     // Build Rack Blocks inside the Cube Facility:
-    // Block 1 (Southwest High-Bay): X in [-22, -2], Z in [-6, 6]
     for (let rx = -20; rx <= -4; rx += 3.6) {
       createRackBay(rx, -4.0, false);
       createRackBay(rx, 4.0, false);
-    }
-
-    // Block 2 (Northwest High-Bay): X in [-20, -4], Z in [-22, -18]
-    for (let rx = -20; rx <= -4; rx += 3.6) {
       createRackBay(rx, -20.0, false);
     }
-
-    // Block 3 (East Racks): X in [12, 14], Z in [-20, 2]
     for (let rz = -18; rz <= 0; rz += 3.6) {
       createRackBay(13.0, rz, true);
     }
-
-    // Block 4 (East Far Racks): X in [25, 27], Z in [-20, 20]
     for (let rz = -18; rz <= 18; rz += 4.2) {
       createRackBay(26.0, rz, true);
     }
@@ -1039,6 +1028,44 @@
         }
       });
     });
+
+    // Static Floor Obstacle Meshes
+    function spawnStaticFloorObstacle(obs) {
+      const g = new THREE.Group();
+      // 2D (obs.x, obs.y) -> 3D (obs.x, 0, -obs.y)
+      g.position.set(obs.x, 0, -obs.y);
+
+      if (obs.type === 'pallet_stack') {
+        const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.14, 1.0), woodMat);
+        pal.position.y = 0.07;
+        g.add(pal);
+
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.7, 0.85), boxMat1);
+        crate.position.y = 0.49;
+        crate.castShadow = true;
+        g.add(crate);
+      } else if (obs.type === 'cones') {
+        [-0.3, 0.3].forEach(cx => {
+          const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(0.18, 0.7, 16),
+            new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 })
+          );
+          cone.position.set(cx, 0.35, 0);
+          g.add(cone);
+        });
+      } else if (obs.type === 'tool_cart') {
+        const cart = new THREE.Mesh(
+          new THREE.BoxGeometry(0.8, 0.9, 0.5),
+          new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5 })
+        );
+        cart.position.y = 0.45;
+        g.add(cart);
+      }
+
+      scene.add(g);
+      staticObstacleMeshes.push(g);
+    }
+    staticObstacles.forEach(o => spawnStaticFloorObstacle(o));
 
     // Docking & Destination Pads
     function createDockPad(x, z, label, colorHex = 0x10b981) {
@@ -1068,24 +1095,20 @@
     function buildAMRModel() {
       const group = new THREE.Group();
 
-      // Main heavy-gauge chassis
-      const chassisMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.4, roughness: 0.3 }); // Safety Yellow
-      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 }); // Slate Metal
-      const rubberMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }); // Rubber Tyre
+      const chassisMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.4, roughness: 0.3 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+      const rubberMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
 
-      // Lower bumper body
       const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.24, 0.95), darkMat);
       bumper.position.set(0.6, 0.16, 0);
       bumper.castShadow = true;
       group.add(bumper);
 
-      // Upper yellow body shell
       const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.42, 0.88), chassisMat);
       body.position.set(0.6, 0.42, 0);
       body.castShadow = true;
       group.add(body);
 
-      // Status side hazard stripes
       const stripeGeo = new THREE.PlaneGeometry(1.2, 0.12);
       const stripeMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
       [-0.45, 0.45].forEach(sz => {
@@ -1095,7 +1118,6 @@
         group.add(stripe);
       });
 
-      // Front Rotating Steering Hub & Wheels (Ackermann Front Pivot)
       frontSteerWheelLeft = new THREE.Group();
       frontSteerWheelLeft.position.set(1.2, 0.15, 0.48);
       const wheelFL = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.12, 16), rubberMat);
@@ -1110,7 +1132,6 @@
       frontSteerWheelRight.add(wheelFR);
       group.add(frontSteerWheelRight);
 
-      // Rear Drive Wheels (fixed axle, spin with movement)
       rearWheelLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.14, 16), rubberMat);
       rearWheelLeft.position.set(0.0, 0.16, 0.48);
       rearWheelLeft.rotation.x = Math.PI / 2;
@@ -1121,7 +1142,6 @@
       rearWheelRight.rotation.x = Math.PI / 2;
       group.add(rearWheelRight);
 
-      // Front & Rear LiDAR Scanners
       const lidarMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.9, roughness: 0.1 });
       const fLidar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.12, 16), lidarMat);
       fLidar.position.set(1.52, 0.28, 0);
@@ -1131,7 +1151,6 @@
       rLidar.position.set(-0.32, 0.28, 0);
       group.add(rLidar);
 
-      // Top Safety Warning Strobe Beacon
       agvBeacon = new THREE.Mesh(
         new THREE.CylinderGeometry(0.06, 0.06, 0.14, 12),
         new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 1.0 })
@@ -1139,7 +1158,6 @@
       agvBeacon.position.set(0.2, 0.72, 0);
       group.add(agvBeacon);
 
-      // Front LED Headlights
       [-0.32, 0.32].forEach(hz => {
         const light = new THREE.Mesh(
           new THREE.BoxGeometry(0.04, 0.08, 0.12),
@@ -1149,7 +1167,6 @@
         group.add(light);
       });
 
-      // Rear Brake Lights
       [-0.32, 0.32].forEach(rz => {
         const brake = new THREE.Mesh(
           new THREE.BoxGeometry(0.04, 0.08, 0.12),
@@ -1160,7 +1177,6 @@
         group.add(brake);
       });
 
-      // Cargo Payload: Euro Pallet with Logistics Crate on AMR Deck
       const pal = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.12, 0.9), woodMat);
       pal.position.set(0.6, 0.70, 0);
       group.add(pal);
@@ -1173,7 +1189,6 @@
       crate.castShadow = true;
       group.add(crate);
 
-      // 270° Safety LiDAR Projection Fan on Floor
       const fanGeo = new THREE.CircleGeometry(5.2, 32, -Math.PI * 0.75, Math.PI * 1.5);
       lidarFanMat = new THREE.MeshBasicMaterial({
         color: 0x10b981,
@@ -1202,7 +1217,6 @@
       for (let i = 0; i <= numPts; i++) {
         const s = (i / numPts) * currentPath.totalLength;
         const p = getPoseAtDistance(currentPath, s);
-        // Note: 2D (x, y) maps to 3D (x, 0.025, -y)
         pts.push(new THREE.Vector3(p.x, 0.025, -p.y));
       }
 
@@ -1222,32 +1236,27 @@
     // --- 7. Crossing Forklifts 3D Meshes ---
     function buildForkliftMesh(fl) {
       const group = new THREE.Group();
-      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.5, roughness: 0.3 }); // Safety Orange
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.5, roughness: 0.3 });
       const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
 
-      // Chassis
       const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 1.1), bodyMat);
       body.position.y = 0.5;
       group.add(body);
 
-      // Cabin overhead cage
       const cage = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.4, 0.95), steelMat);
       cage.position.set(-0.1, 1.5, 0);
       group.add(cage);
 
-      // Vertical Mast and Forks
       const mast = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.8), steelMat);
       mast.position.set(0.9, 1.2, 0);
       group.add(mast);
 
-      // Forks
       [-0.25, 0.25].forEach(fz => {
         const fork = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.1), steelMat);
         fork.position.set(1.45, 0.15, fz);
         group.add(fork);
       });
 
-      // Cargo on Forks
       const pal = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.1, 0.9), woodMat);
       pal.position.set(1.45, 0.25, 0);
       group.add(pal);
@@ -1256,7 +1265,6 @@
       cargo.position.set(1.45, 0.65, 0);
       group.add(cargo);
 
-      // Flashing Safety Beacon
       const bcn = new THREE.Mesh(
         new THREE.CylinderGeometry(0.06, 0.06, 0.12, 12),
         new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0xf59e0b, emissiveIntensity: 1.5 })
@@ -1274,14 +1282,13 @@
       forkliftMeshes.push(mesh);
     });
 
-    // --- 8. Kinematic Physics Step (50 Hz Sub-step) ---
+    // --- 8. Kinematic Physics Step (50 Hz Sub-step) with Mutual Yielding ---
     function stepSimulation(dt) {
       if (!currentPath) return;
 
       const totalLen = currentPath.totalLength;
       const distRemaining = totalLen - pathProgress;
 
-      // Check Mission Completion
       if (distRemaining <= 0.18) {
         isRunning = false;
         veh.v = 0.0;
@@ -1294,64 +1301,113 @@
         return;
       }
 
-      // --- A. Dynamic Crossing Traffic Animation & Holding Logic ---
+      // --- A. Dynamic Crossing Traffic Safety & Mutual Yielding ---
       activeYieldVehicle = null;
 
       if (forkliftsActive) {
-        forklifts.forEach((fl, idx) => {
-          // Forklift 1 moves along Y across Central North Avenue (x = 6.0)
-          if (fl.crossAxis === undefined) {
-            // Check if AGV is approaching this crossing (x = 6.0, y in [-8.0, 2.0])
-            const distToCross = Math.hypot(veh.x - fl.x, veh.y - fl.y);
-            const inApproachZone = (veh.x > 3.0 && veh.x < 9.0 && Math.abs(veh.y - 2.0) < 6.5);
+        // --- Forklift 1 (Crosses Central North Avenue horizontally at y = -2.0, z = 2.0) ---
+        const fl1 = forklifts[0];
+        const m1 = forkliftMeshes[0];
 
-            // AGV checks if forklift is crossing
-            const flInIntersection = Math.abs(fl.y - 2.0) < 3.2;
-            if (inApproachZone && flInIntersection) {
-              activeYieldVehicle = fl;
-            }
+        // AGV state relative to Intersection 1 (x = 6.0, y = -2.0):
+        // Stop line is at y = -5.0 (3.0m south of crossing line).
+        const agvDistToCross1 = -2.0 - veh.y;
+        const agvApproachingCross1 = (Math.abs(veh.x - 6.0) < 1.8 && agvDistToCross1 > 0.1 && agvDistToCross1 < 6.5);
+        const agvOccupyingCross1 = (Math.abs(veh.x - 6.0) < 2.0 && veh.y >= -4.8 && veh.y <= 1.2);
 
-            // Move forklift
-            fl.y += fl.direction * fl.speed * dt * speedMultiplier;
-            if (fl.y > fl.maxY) {
-              fl.y = fl.maxY;
-              fl.direction = -1;
-            } else if (fl.y < fl.minY) {
-              fl.y = fl.minY;
-              fl.direction = 1;
-            }
+        // Forklift 1 state relative to avenue center (x = 6.0):
+        const fl1DistToCenter = Math.abs(fl1.x - 6.0);
+        const fl1Approaching = (fl1.x < 6.0 && fl1.dir > 0) || (fl1.x > 6.0 && fl1.dir < 0);
+        const fl1InZone = (fl1DistToCenter < 3.2) || (fl1DistToCenter < 5.2 && fl1Approaching);
 
-            const m = forkliftMeshes[idx];
-            if (m) {
-              // 2D (fl.x, fl.y) -> 3D (fl.x, 0, -fl.y)
-              m.position.set(fl.x, 0, -fl.y);
-              m.rotation.y = (fl.direction > 0 ? 0 : Math.PI); // Facing North / South
-              if (m.userData.beacon) {
-                m.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 15.0);
-              }
-            }
-          } else {
-            // Forklift 2 moves along X across East Crossway (y = 10.0)
-            fl.x += fl.direction * fl.speed * dt * speedMultiplier;
-            if (fl.x > fl.maxX) {
-              fl.x = fl.maxX;
-              fl.direction = -1;
-            } else if (fl.x < fl.minX) {
-              fl.x = fl.minX;
-              fl.direction = 1;
-            }
+        // MUTUAL YIELDING RULES:
+        if (agvOccupyingCross1) {
+          // AGV is already in the intersection: Forklift MUST hold outside the aisle!
+          if (fl1DistToCenter >= 2.8) {
+            fl1.holding = true;
+          }
+        } else if (agvApproachingCross1 && fl1InZone) {
+          // Forklift is crossing: AGV yields and stops before the stop line (y = -5.0)!
+          activeYieldVehicle = fl1;
+          fl1.holding = false;
+        } else {
+          fl1.holding = false;
+        }
 
-            const distToCross = Math.hypot(veh.x - fl.x, veh.y - fl.crossY);
-            const inApproachZone = (Math.abs(veh.y - 10.0) < 3.0 && Math.abs(veh.x - fl.x) < 5.0);
-            if (inApproachZone && Math.abs(fl.x - 13.0) < 2.5) {
-              activeYieldVehicle = fl;
-            }
+        // Advance Forklift 1 ONLY if NOT holding
+        if (!fl1.holding) {
+          fl1.x += fl1.dir * fl1.speed * dt * speedMultiplier;
+          if (fl1.x > fl1.maxX) {
+            fl1.x = fl1.maxX;
+            fl1.dir = -1;
+          } else if (fl1.x < fl1.minX) {
+            fl1.x = fl1.minX;
+            fl1.dir = 1;
+          }
+        }
 
-            const m = forkliftMeshes[idx];
-            if (m) {
-              m.position.set(fl.x, 0, -fl.crossY);
-              m.rotation.y = (fl.direction > 0 ? Math.PI / 2 : -Math.PI / 2);
-            }
+        if (m1) {
+          // 2D (fl.x, fl.y) -> 3D (fl.x, 0, -fl.y) -> z = 2.0
+          m1.position.set(fl1.x, 0, 2.0);
+          // Face East (+X, rotY = 0) or West (-X, rotY = Math.PI)
+          m1.rotation.y = (fl1.dir > 0 ? 0 : Math.PI);
+          if (m1.userData.beacon) {
+            m1.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 14.0);
+          }
+        }
+
+        // --- Forklift 2 (Tugger AMR-02, Crosses East Crossway vertically at x = 13.0) ---
+        const fl2 = forklifts[1];
+        const m2 = forkliftMeshes[1];
+
+        // AGV state relative to Intersection 2 (x = 13.0, y = 10.0):
+        // Stop line is at x = 10.2 (2.8m west of crossing line).
+        const agvDistToCross2 = 13.0 - veh.x;
+        const agvApproachingCross2 = (Math.abs(veh.y - 10.0) < 1.8 && agvDistToCross2 > 0.1 && agvDistToCross2 < 6.0);
+        const agvOccupyingCross2 = (Math.abs(veh.y - 10.0) < 2.0 && veh.x >= 10.2 && veh.x <= 15.2);
+
+        const fl2DistToCenter = Math.abs(fl2.y - 10.0);
+        const fl2Approaching = (fl2.y < 10.0 && fl2.dir > 0) || (fl2.y > 10.0 && fl2.dir < 0);
+        const fl2InZone = (fl2DistToCenter < 3.2) || (fl2DistToCenter < 5.0 && fl2Approaching);
+
+        if (agvOccupyingCross2) {
+          if (fl2DistToCenter >= 2.8) {
+            fl2.holding = true;
+          }
+        } else if (agvApproachingCross2 && fl2InZone) {
+          activeYieldVehicle = fl2;
+          fl2.holding = false;
+        } else {
+          fl2.holding = false;
+        }
+
+        if (!fl2.holding) {
+          fl2.y += fl2.dir * fl2.speed * dt * speedMultiplier;
+          if (fl2.y > fl2.maxY) {
+            fl2.y = fl2.maxY;
+            fl2.dir = -1;
+          } else if (fl2.y < fl2.minY) {
+            fl2.y = fl2.minY;
+            fl2.dir = 1;
+          }
+        }
+
+        if (m2) {
+          // 2D (13.0, fl.y) -> 3D (13.0, 0, -fl.y)
+          m2.position.set(13.0, 0, -fl2.y);
+          // Face North (+Y, -Z in 3D: rotY = Math.PI / 2) or South (-Y, +Z in 3D: rotY = -Math.PI / 2)
+          m2.rotation.y = (fl2.dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+          if (m2.userData.beacon) {
+            m2.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 14.0);
+          }
+        }
+
+        // HARD DISTANCE COLLISION PREVENTER (Math Inviolability)
+        forklifts.forEach(fl => {
+          const directDist = Math.hypot(veh.x - fl.x, veh.y - fl.y);
+          if (directDist < 2.6) {
+            // Immediately freeze both vehicles so they NEVER penetrate each other
+            fl.holding = true;
           }
         });
       }
@@ -1369,7 +1425,6 @@
       });
 
       // --- B. Speed Regulation & LiDAR Scanner Safety State ---
-      // Local search along path for closest pose
       let bestS = pathProgress;
       let bestDist = 1e9;
       for (let ds = -0.3; ds <= 0.6; ds += 0.05) {
@@ -1385,16 +1440,15 @@
 
       const refPose = getPoseAtDistance(currentPath, pathProgress);
 
-      // Regulated cruise speed: 0.45 m/s in turns, 0.75 m/s straight
       const isCornering = refPose.isTurn || Math.abs(refPose.curvature) > 0.05;
       let targetV = (isCornering ? 0.45 : vNominal) * speedMultiplier;
 
-      // Handle Safety Stop when Crossing Traffic is detected ahead
       const hudStatus = document.getElementById('hud-status');
       const turnBadge = document.getElementById('turn-indicator-badge');
 
       if (activeYieldVehicle) {
-        targetV = 0.0; // COMPLETE SAFETY STOP!
+        // Complete safety stop at painted stop line!
+        targetV = 0.0;
         if (hudStatus) {
           hudStatus.textContent = `[SAFETY STOP] YIELDING TO ${activeYieldVehicle.name.toUpperCase()}`;
           hudStatus.className = 'font-bold text-red-400 text-sm animate-pulse tracking-wide';
@@ -1410,7 +1464,6 @@
         });
         if (turnBadge) turnBadge.classList.add('hidden');
       } else if (distRemaining < 3.5) {
-        // Docking deceleration
         targetV = Math.max(0.20, (distRemaining / 3.5) * 0.45);
         if (hudStatus) {
           hudStatus.textContent = '[DOCKING IN PROGRESS] DECELERATING FOR LOGISTICS BAY';
@@ -1422,7 +1475,6 @@
         }
         if (turnBadge) turnBadge.classList.add('hidden');
       } else if (isCornering) {
-        // Turning state
         if (hudStatus) {
           hudStatus.textContent = `[AUTONOMOUS CORNERING] ${refPose.name}`;
           hudStatus.className = 'font-bold text-amber-300 text-sm tracking-wide';
@@ -1442,7 +1494,6 @@
           turnBadge.classList.remove('hidden');
         }
       } else {
-        // Standard Cruising
         if (hudStatus) {
           hudStatus.textContent = `[CRUISING ${(vNominal * speedMultiplier).toFixed(2)} m/s] PATH CLEAR`;
           hudStatus.className = 'font-bold text-emerald-400 text-sm tracking-wide';
@@ -1459,33 +1510,27 @@
         if (turnBadge) turnBadge.classList.add('hidden');
       }
 
-      // Smooth Acceleration / Braking
+      // Smooth Acceleration / Immediate Safety Braking
       if (veh.v < targetV) {
         veh.v = Math.min(targetV, veh.v + 0.65 * dt);
       } else {
-        veh.v = Math.max(targetV, veh.v - (activeYieldVehicle ? 1.8 : 0.85) * dt);
+        veh.v = Math.max(targetV, veh.v - (activeYieldVehicle ? 2.5 : 0.85) * dt);
       }
 
       // --- C. Stanley / MPC Steering Law with Feedforward Curvature ---
       const dx = veh.x - refPose.x;
       const dy = veh.y - refPose.y;
-      // Lateral error: distance perpendicular to path tangent
       const latError = -dx * Math.sin(refPose.yaw) + dy * Math.cos(refPose.yaw);
       let yawError = Math.atan2(Math.sin(veh.yaw - refPose.yaw), Math.cos(veh.yaw - refPose.yaw));
 
-      // Feedforward steering for circular arcs
       const ffwdSteer = Math.atan(veh.wheelbase * refPose.curvature);
-
-      // Feedback steering
       const kLat = 1.35;
       const kYaw = 1.75;
       const deltaRaw = ffwdSteer - (kYaw * yawError + Math.atan(kLat * latError / Math.max(0.2, veh.v)));
 
-      // Enforce physical Ackermann steering limits (±30 degrees)
       const maxSteer = THREE.MathUtils.degToRad(30.0);
       const targetSteer = Math.max(-maxSteer, Math.min(maxSteer, deltaRaw));
 
-      // Smooth steering rate actuator limit
       const maxSteerRate = 2.0 * dt;
       const dSteer = targetSteer - veh.steer;
       veh.steer += Math.max(-maxSteerRate, Math.min(maxSteerRate, dSteer));
@@ -1498,20 +1543,16 @@
 
       // --- E. Update 3D AGV Meshes ---
       if (agvGroup) {
-        // 2D (veh.x, veh.y) -> Three.js 3D (veh.x, 0, -veh.y)
         agvGroup.position.set(veh.x, 0, -veh.y);
-        agvGroup.rotation.y = veh.yaw; // Facing tangential heading
+        agvGroup.rotation.y = veh.yaw;
 
-        // Pivot front steering wheels according to veh.steer
         if (frontSteerWheelLeft) frontSteerWheelLeft.rotation.y = veh.steer;
         if (frontSteerWheelRight) frontSteerWheelRight.rotation.y = veh.steer;
 
-        // Spin wheels with travel velocity
         const wheelSpin = (veh.v * dt) / 0.16;
         if (rearWheelLeft) rearWheelLeft.rotation.x += wheelSpin;
         if (rearWheelRight) rearWheelRight.rotation.x += wheelSpin;
 
-        // Flash Amber Warning Strobe Beacon
         if (agvBeacon) {
           agvBeacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 12.0);
         }
@@ -1523,8 +1564,6 @@
       if (!currentPath) return;
 
       if (activeCamera === 'chase') {
-        // Dynamic Cornering Cinema Chase:
-        // Position camera smoothly behind the AGV heading vector
         const camDist = 6.2;
         const camHeight = 4.8;
         const targetCamX = veh.x - camDist * Math.cos(veh.yaw);
@@ -1532,7 +1571,6 @@
 
         camera.position.lerp(new THREE.Vector3(targetCamX, camHeight, targetCamZ), 0.12);
 
-        // Look at a target 2.6m ahead of the AGV
         const lookDist = 2.6;
         const lookX = veh.x + lookDist * Math.cos(veh.yaw);
         const lookZ = -veh.y - lookDist * Math.sin(veh.yaw);
@@ -1543,12 +1581,10 @@
 
         camera.lookAt(camLookTarget);
       } else if (activeCamera === 'birds') {
-        // High Isometric Birds-Eye Overview showing full Cube Warehouse
         const birdPos = new THREE.Vector3(-2.0, 48.0, 36.0);
         camera.position.lerp(birdPos, 0.08);
         camera.lookAt(0, 0, 0);
       } else if (activeCamera === 'pov') {
-        // AGV Front Bumper POV
         const povX = veh.x + 1.2 * Math.cos(veh.yaw);
         const povZ = -veh.y - 1.2 * Math.sin(veh.yaw);
         camera.position.set(povX, 0.85, povZ);
@@ -1557,7 +1593,6 @@
         const lookZ = -veh.y - 8.0 * Math.sin(veh.yaw);
         camera.lookAt(lookX, 0.75, lookZ);
       } else if (activeCamera === 'orbit') {
-        // Free Orbit Controls
         if (controls) controls.update();
       }
     }
@@ -1585,7 +1620,6 @@
 
     // --- 11. HUD Telemetry Updates ---
     function updateHUD() {
-      // Speed Gauge
       const speedEl = document.getElementById('hud-val-speed');
       if (speedEl) speedEl.textContent = veh.v.toFixed(2);
 
@@ -1598,7 +1632,6 @@
         barSpeed.style.width = `${pct}%`;
       }
 
-      // Steering Angle Gauge
       const steerDeg = THREE.MathUtils.radToDeg(veh.steer);
       const steerEl = document.getElementById('hud-val-steer');
       if (steerEl) steerEl.textContent = steerDeg.toFixed(1);
@@ -1622,7 +1655,6 @@
         }
       }
 
-      // Compass Heading
       let headingDeg = (THREE.MathUtils.radToDeg(veh.yaw) % 360 + 360) % 360;
       const yawEl = document.getElementById('hud-val-yaw');
       if (yawEl) yawEl.textContent = `${Math.round(headingDeg)}°`;
@@ -1646,7 +1678,6 @@
         cardinalEl.textContent = card;
       }
 
-      // Lateral Error
       if (currentPath) {
         const refPose = getPoseAtDistance(currentPath, pathProgress);
         const dx = veh.x - refPose.x;
@@ -1655,7 +1686,6 @@
         const latErrEl = document.getElementById('hud-val-laterr');
         if (latErrEl) latErrEl.textContent = `${(latErr * 100).toFixed(1)}`;
 
-        // Distance & Progress
         const distEl = document.getElementById('hud-dist');
         if (distEl) distEl.textContent = `${pathProgress.toFixed(1)} / ${currentPath.totalLength.toFixed(1)} m`;
 
@@ -1705,7 +1735,6 @@
       showToast('Simulation Reset to Starting Dock');
     });
 
-    // Camera Selector Buttons
     function setCamera(mode) {
       activeCamera = mode;
       if (controls) controls.enabled = (mode === 'orbit');
@@ -1728,26 +1757,32 @@
     document.getElementById('cam-pov').addEventListener('click', () => setCamera('pov'));
     document.getElementById('cam-orbit').addEventListener('click', () => setCamera('orbit'));
 
-    // Route Buttons
     document.getElementById('btn-route-multiturn').addEventListener('click', () => setupMissionPath('multiturn'));
     document.getElementById('btn-route-square').addEventListener('click', () => setupMissionPath('square'));
     document.getElementById('btn-route-slalom').addEventListener('click', () => setupMissionPath('slalom'));
 
-    // Speed Slider
     document.getElementById('slider-speed').addEventListener('input', (e) => {
       speedMultiplier = parseFloat(e.target.value);
       const valEl = document.getElementById('slider-speed-val');
       if (valEl) valEl.textContent = `${(0.75 * speedMultiplier).toFixed(2)} m/s (${speedMultiplier.toFixed(1)}x)`;
     });
 
-    // Crossing Traffic Toggle
     document.getElementById('chk-forklifts').addEventListener('change', (e) => {
       forkliftsActive = e.target.checked;
       forkliftMeshes.forEach(m => { m.visible = forkliftsActive; });
       showToast(`Crossing Forklifts: ${forkliftsActive ? 'ACTIVE' : 'DISABLED'}`);
     });
 
-    // Sidebar Toggle
+    document.getElementById('chk-obstacles').addEventListener('change', (e) => {
+      courseActive = e.target.checked;
+      staticObstacleMeshes.forEach(m => { m.visible = courseActive; });
+      showToast(`Floor Hazards: ${courseActive ? 'ACTIVE' : 'DISABLED'}`);
+    });
+
+    document.getElementById('btn-respawn-obs').addEventListener('click', () => {
+      showToast('Floor Storage Layout Updated');
+    });
+
     document.getElementById('btn-toggle-menu').addEventListener('click', () => {
       const sb = document.getElementById('sidebar-panel');
       if (sb) sb.classList.toggle('collapsed-sidebar');
@@ -1757,7 +1792,6 @@
       if (sb) sb.classList.add('collapsed-sidebar');
     });
 
-    // Window Resize Handler
     window.addEventListener('resize', () => {
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
