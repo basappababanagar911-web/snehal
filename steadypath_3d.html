@@ -78,7 +78,6 @@
 
     <!-- Top-Right Actions & Camera Toolbar -->
     <div class="glass-panel rounded-xl p-1.5 shadow-2xl flex items-center gap-1 pointer-events-auto">
-      <!-- Camera Presets -->
       <div class="flex items-center bg-slate-900/80 rounded-lg p-0.5 border border-slate-700/50 mr-2">
         <button id="cam-chase" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 transition hover:bg-amber-400 flex items-center gap-1">
           <span>Cinema Chase</span>
@@ -94,7 +93,6 @@
         </button>
       </div>
 
-      <!-- Quick Play/Pause & Reset -->
       <button id="btn-play-pause" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow">
         <span id="play-icon">⏸</span>
         <span id="play-text">Pause</span>
@@ -111,7 +109,6 @@
 
   <!-- LEFT CONTROL & ROUTE SELECTION SIDEBAR -->
   <aside id="sidebar-panel" class="absolute top-20 left-3 z-10 w-80 glass-panel rounded-2xl p-4 shadow-2xl pointer-events-auto expanded-sidebar max-h-[calc(100vh-100px)] overflow-y-auto space-y-4">
-    <!-- Header -->
     <div class="flex items-center justify-between pb-2 border-b border-slate-800">
       <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Route & Mission Control</div>
       <button id="btn-close-sidebar" class="text-slate-400 hover:text-white text-xs">✕</button>
@@ -186,7 +183,7 @@
       </div>
       <button id="btn-respawn-obs" class="w-full py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition flex items-center justify-center gap-1.5">
         <span>🎲</span>
-        <span>Randomize Floor Cargo Layout</span>
+        <span>Realign Floor Cargo Staging</span>
       </button>
     </div>
 
@@ -218,7 +215,6 @@
 
   <!-- BOTTOM TELEMETRY & GAUGES BAR -->
   <footer class="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-end justify-between gap-3 pointer-events-none">
-    <!-- AGV Physical Telemetry Gauges (Left) -->
     <div class="glass-panel rounded-2xl p-3 shadow-2xl flex items-center gap-4 pointer-events-auto">
       <!-- Speed Gauge -->
       <div class="flex flex-col items-center">
@@ -242,7 +238,6 @@
           <span id="hud-val-steer" class="text-2xl font-black font-mono text-amber-400">0.0</span>
           <span class="text-xs text-slate-400 font-medium">deg</span>
         </div>
-        <!-- Bidirectional Bar (-30° to +30°) -->
         <div class="w-24 bg-slate-800 h-1.5 rounded-full relative flex items-center justify-center">
           <div class="w-0.5 h-3 bg-slate-500 absolute z-10"></div>
           <div id="bar-steer-left" class="h-full bg-cyan-400 absolute right-1/2 hud-gauge-bar" style="width: 0%;"></div>
@@ -257,7 +252,6 @@
       <div class="flex flex-col items-center">
         <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Heading (ψ)</div>
         <div class="flex items-center gap-2 my-0.5">
-          <!-- Mini Compass Disc -->
           <div class="w-7 h-7 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center relative overflow-hidden">
             <div id="compass-needle" class="w-1 h-5 bg-gradient-to-t from-transparent via-amber-400 to-red-500 rounded-full compass-dial"></div>
           </div>
@@ -282,9 +276,8 @@
       </div>
     </div>
 
-    <!-- Mission Progress & Trip Counter (Right) -->
+    <!-- Mission Progress & Trip Counter -->
     <div class="glass-panel rounded-2xl p-3 shadow-2xl flex items-center gap-4 pointer-events-auto">
-      <!-- Progress Bar & Leg -->
       <div class="flex flex-col w-56">
         <div class="flex justify-between text-xs font-bold mb-1">
           <span id="hud-leg-name" class="text-amber-300 truncate max-w-[140px]">Receiving Lane Cruise</span>
@@ -301,7 +294,6 @@
 
       <div class="w-px h-12 bg-slate-800"></div>
 
-      <!-- Safety Counters -->
       <div class="flex flex-col items-center">
         <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Safety Status</div>
         <div class="flex items-center gap-1.5 my-1">
@@ -367,7 +359,6 @@
     const crossingGantries = [];
 
     // --- 2. 2D Parametric Fillet Path Mathematical Engine ---
-    // Smooth circular fillet turns (Radius R) between arbitrary 2D corner waypoints
     function buildFilletPath(corners, R = 4.5) {
       const segments = [];
       let totalLength = 0.0;
@@ -400,10 +391,10 @@
         const T2 = [P_curr[0] + d * u2x, P_curr[1] + d * u2y];
 
         let n1x, n1y;
-        if (turnAngle > 0) { // Left turn
+        if (turnAngle > 0) {
           n1x = -u1y;
           n1y = u1x;
-        } else { // Right turn
+        } else {
           n1x = u1y;
           n1y = -u1x;
         }
@@ -501,7 +492,6 @@
       return { segments, totalLength };
     }
 
-    // Reference Pose Query along Path
     function getPoseAtDistance(pathObj, s) {
       const sClamped = Math.max(0.0, Math.min(pathObj.totalLength, s));
       const segs = pathObj.segments;
@@ -577,7 +567,6 @@
       const mDef = MISSIONS[missionKey];
       currentPath = buildFilletPath(mDef.corners, mDef.R);
 
-      // Reset vehicle to start of new path
       const startPose = getPoseAtDistance(currentPath, 0.0);
       veh.x = startPose.x;
       veh.y = startPose.y;
@@ -586,7 +575,6 @@
       veh.steer = 0.0;
       pathProgress = 0.0;
 
-      // Reset forklifts to starting holding positions outside the intersections
       forklifts[0].x = -5.5;
       forklifts[0].dir = 1;
       forklifts[0].holding = false;
@@ -595,14 +583,11 @@
       forklifts[1].dir = 1;
       forklifts[1].holding = false;
 
-      // Update 3D Trajectory Ribbon Visualization
       updateTrajectoryRibbon();
 
-      // Update HUD Labels
       const badge = document.getElementById('path-mission-label');
       if (badge) badge.textContent = mDef.badge;
 
-      // Update active button styling in sidebar
       ['multiturn', 'square', 'slalom'].forEach(k => {
         const btn = document.getElementById(`btn-route-${k}`);
         if (btn) {
@@ -617,16 +602,12 @@
       showToast(`Selected: ${mDef.name}`);
     }
 
-    // --- 4. Dynamic Crossing Forklifts (Perpendicular Intersections) ---
-    // In realistic logistics: Cross-traffic crosses PERPENDICULARLY across the travel avenue.
-    // They NEVER drive down the AGV's travel lane!
+    // --- 4. Dynamic Crossing Forklifts (Perpendicular Crossings) ---
     const forklifts = [
       {
         id: 1,
         name: 'Forklift FL-01',
         type: 'forklift',
-        // Crosses Central North Avenue (AGV northbound on x = 6.0)
-        // Forklift travels HORIZONTALLY along y = -2.0 between x = -6.0 and x = 16.0
         crossAisle: 'North Avenue',
         crossY: -2.0,
         x: -5.5,
@@ -634,17 +615,14 @@
         minX: -6.0,
         maxX: 16.0,
         speed: 1.15,
-        dir: 1, // +1 moving East, -1 moving West
+        dir: 1,
         cargo: 'CARTON PALLET',
-        holding: false,
-        stopLinePos: 6.0 // intersection center
+        holding: false
       },
       {
         id: 2,
         name: 'Tugger AMR-02',
         type: 'amr',
-        // Crosses East Cross Highway (AGV eastbound on y = 10.0)
-        // Tugger travels VERTICALLY along x = 13.0 between y = 4.0 and y = 16.0
         crossAisle: 'East Highway',
         crossX: 13.0,
         x: 13.0,
@@ -652,25 +630,24 @@
         minY: 4.0,
         maxY: 16.0,
         speed: 1.0,
-        dir: 1, // +1 moving North, -1 moving South
+        dir: 1,
         cargo: 'STEEL DRUMS',
-        holding: false,
-        stopLinePos: 10.0 // intersection center
+        holding: false
       }
     ];
 
-    // Static Floor Hazards
+    // Static Floor Staging Items (Strictly in Side Staging Bays - ZERO in path!)
     const staticObstacles = [
-      { id: 'obs1', type: 'pallet_stack', x: -10.0, y: -13.8, label: 'EURO-PALLET BATCH' },
-      { id: 'obs2', type: 'cones', x: 6.0, y: -14.2, label: 'SAFETY CONE CLUSTER' },
-      { id: 'obs3', type: 'tool_cart', x: 8.5, y: 10.0, label: 'MOBILE WORKSHOP CART' },
-      { id: 'obs4', type: 'pallet_stack', x: 22.0, y: -2.0, label: 'STAGED CARTON SKID' }
+      { id: 'obs1', type: 'pallet_stack', x: -12.0, y: -12.2, label: 'STAGED PALLET BATCH' },
+      { id: 'obs2', type: 'cones', x: -2.0, y: -8.0, label: 'ALCOVE SAFETY CONES' },
+      { id: 'obs3', type: 'tool_cart', x: 10.0, y: 14.5, label: 'MAINTENANCE TOOL CART' },
+      { id: 'obs4', type: 'pallet_stack', x: 23.8, y: 1.0, label: 'EAST STAGED CRATES' }
     ];
 
     // --- 5. Three.js 3D Scene & Cube Warehouse Construction ---
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xdbeafe); // Clean, airy daylight atmosphere - Zero dark/black surfaces
+    scene.background = new THREE.Color(0xdbeafe);
     scene.fog = null;
 
     camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 400);
@@ -684,7 +661,6 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // Orbit Controls
     if (typeof THREE.OrbitControls !== 'undefined') {
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
@@ -695,7 +671,6 @@
       controls.enabled = false;
     }
 
-    // --- Lighting ---
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.55);
     scene.add(ambientLight);
 
@@ -712,15 +687,14 @@
     sunLight.shadow.camera.bottom = -35;
     scene.add(sunLight);
 
-    // --- CUBE WAREHOUSE BUILDING (58m x 58m x 18m High) ---
+    // CUBE WAREHOUSE BUILDING (58m x 58m x 18m High)
     const CUBE_SIZE = 58.0;
     const CUBE_HEIGHT = 18.0;
-    const HALF_SIZE = CUBE_SIZE / 2.0; // 29.0m
+    const HALF_SIZE = CUBE_SIZE / 2.0;
 
-    // 1. Polished Epoxy Concrete Floor
     const floorGeo = new THREE.PlaneGeometry(CUBE_SIZE, CUBE_SIZE);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x475569, // Clean slate industrial epoxy floor
+      color: 0x475569,
       roughness: 0.35,
       metalness: 0.20
     });
@@ -729,20 +703,18 @@
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Subtle Floor Grid
     const gridHelper = new THREE.GridHelper(CUBE_SIZE, 58, 0x64748b, 0x475569);
     gridHelper.position.y = 0.005;
     scene.add(gridHelper);
 
-    // 2. Four Architectural Exterior Perimeter Walls (Enclosing the Cube)
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0xf1f5f9, // Crisp pearl-white insulated panels - Zero dark/black surfaces
+      color: 0xf1f5f9,
       roughness: 0.45,
       metalness: 0.10
     });
     const wallTrimMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.5, roughness: 0.3 });
     const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x93c5fd, // Sky blue clerestory windows
+      color: 0x93c5fd,
       transparent: true,
       opacity: 0.45,
       roughness: 0.1
@@ -753,36 +725,31 @@
       wallGroup.position.set(x, 0, z);
       wallGroup.rotation.y = rotY;
 
-      // Lower insulated wall
       const lowerWall = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE, 13.0, 0.4), wallMat);
       lowerWall.position.y = 6.5;
       lowerWall.receiveShadow = true;
       wallGroup.add(lowerWall);
 
-      // Upper clerestory windows
       const clerestory = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE - 2.0, 3.5, 0.2), glassMat);
       clerestory.position.y = 14.75;
       wallGroup.add(clerestory);
 
-      // Mullions
       for (let mx = -HALF_SIZE + 2; mx <= HALF_SIZE - 2; mx += 4.0) {
         const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.15, 3.5, 0.25), wallTrimMat);
         mullion.position.set(mx, 14.75, 0);
         wallGroup.add(mullion);
       }
 
-      // Parapet
       const parapet = new THREE.Mesh(new THREE.BoxGeometry(CUBE_SIZE, 1.5, 0.5), wallTrimMat);
       parapet.position.y = 17.25;
       wallGroup.add(parapet);
 
-      // 3 Roll-up Loading Docks on West Wall
       if (isDockWall) {
         const dockDoorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.6, roughness: 0.4 });
         const bumperMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
         const yellowStripeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
 
-        [-16.0, 0.0, 16.0].forEach((dockZ, idx) => {
+        [-16.0, 0.0, 16.0].forEach((dockZ) => {
           const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(4.8, 6.2, 0.5), new THREE.MeshStandardMaterial({ color: 0x334155 }));
           doorFrame.position.set(dockZ, 3.1, 0.1);
           wallGroup.add(doorFrame);
@@ -813,12 +780,12 @@
       scene.add(wallGroup);
     }
 
-    createCubeWall(-HALF_SIZE, 0, Math.PI / 2, true); // West Loading Dock Wall
-    createCubeWall(HALF_SIZE, 0, -Math.PI / 2, false); // East Wall
-    createCubeWall(0, -HALF_SIZE, 0, false); // North Wall
-    createCubeWall(0, HALF_SIZE, Math.PI, false); // South Wall
+    createCubeWall(-HALF_SIZE, 0, Math.PI / 2, true);
+    createCubeWall(HALF_SIZE, 0, -Math.PI / 2, false);
+    createCubeWall(0, -HALF_SIZE, 0, false);
+    createCubeWall(0, HALF_SIZE, Math.PI, false);
 
-    // 3. Space-Frame Structural Steel Roof Trusses spanning at Y = 17.5m
+    // Roof Trusses
     const trussMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.7, roughness: 0.3 });
     for (let tz = -HALF_SIZE + 4; tz <= HALF_SIZE - 4; tz += 9.5) {
       const trussGroup = new THREE.Group();
@@ -855,7 +822,7 @@
       scene.add(trussGroup);
     }
 
-    // 4. Safety Demarcation Lines (Epoxy Yellow Highway Aisle Stripes)
+    // Safety Demarcation Lines
     function createSafetyLine(x, z, length, isHorizontal = true) {
       const lineGeo = isHorizontal ? new THREE.PlaneGeometry(length, 0.22) : new THREE.PlaneGeometry(0.22, length);
       const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
@@ -876,7 +843,6 @@
 
     // Crosswalk Zebra Striping & Crosswalk STOP Lines
     function createCrossingZone(cx, cz, isHorizCrossing = true) {
-      // Zebra stripes along pedestrian/vehicle crossing
       for (let off = -1.6; off <= 1.6; off += 0.8) {
         const stripe = new THREE.Mesh(
           new THREE.PlaneGeometry(isHorizCrossing ? 0.35 : 2.2, isHorizCrossing ? 2.2 : 0.35),
@@ -887,40 +853,39 @@
         scene.add(stripe);
       }
 
-      // Painted Heavy STOP Line before crosswalk (with hazard hash borders)
       const stopLine = new THREE.Mesh(
         new THREE.PlaneGeometry(isHorizCrossing ? 3.6 : 0.45, isHorizCrossing ? 0.45 : 3.6),
         new THREE.MeshBasicMaterial({ color: 0xef4444 })
       );
-      // Position stop line 3.0m back from crossing center
       stopLine.position.set(isHorizCrossing ? cx : cx - 3.0, 0.019, isHorizCrossing ? cz + 3.0 : cz);
       stopLine.rotation.x = -Math.PI / 2;
       scene.add(stopLine);
     }
 
-    // Intersection 1: Central North Avenue (AGV along x = 6.0, Forklift crosses along z = 2.0 [y = -2.0])
     createCrossingZone(6.0, 2.0, true);
-
-    // Intersection 2: East Crossway (AGV along z = -10.0 [y = 10.0], Tugger crosses along x = 13.0)
     createCrossingZone(13.0, -10.0, false);
 
-    // 5. Overhead Intersection Warning Gantries with Active Signals
-    function createIntersectionGantry(gx, gz, isHoriz = true) {
+    function createIntersectionGantry(gx, gz, roadAxis = 'Z') {
       const gGroup = new THREE.Group();
       gGroup.position.set(gx, 0, gz);
-      if (!isHoriz) gGroup.rotation.y = Math.PI / 2;
 
       const archMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.4 });
       const postL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 5.0, 12), archMat);
-      postL.position.set(0, 2.5, 2.4);
-      gGroup.add(postL);
-
       const postR = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 5.0, 12), archMat);
-      postR.position.set(0, 2.5, -2.4);
-      gGroup.add(postR);
+      let beam;
 
-      const beam = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 5.0), archMat);
+      if (roadAxis === 'Z') {
+        postL.position.set(-2.5, 2.5, 0);
+        postR.position.set(2.5, 2.5, 0);
+        beam = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.2, 0.2), archMat);
+      } else {
+        postL.position.set(0, 2.5, -2.5);
+        postR.position.set(0, 2.5, 2.5);
+        beam = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 5.2), archMat);
+      }
       beam.position.set(0, 5.0, 0);
+      gGroup.add(postL);
+      gGroup.add(postR);
       gGroup.add(beam);
 
       const signalBulb = new THREE.Mesh(
@@ -933,10 +898,10 @@
       scene.add(gGroup);
       crossingGantries.push({ group: gGroup, bulb: signalBulb, x: gx, z: gz });
     }
-    createIntersectionGantry(6.0, 2.0, true);
-    createIntersectionGantry(13.0, -10.0, false);
+    createIntersectionGantry(6.0, 2.0, 'Z');
+    createIntersectionGantry(13.0, -10.0, 'X');
 
-    // 6. High-Bay Pallet Racking Grid (Populating the Cube Interior)
+    // High-Bay Pallet Racking Construction (Open Portals - Zero Conflicts!)
     const rackBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.3 });
     const beamYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.4, roughness: 0.4 });
     const woodMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.85 });
@@ -1005,20 +970,24 @@
       scene.add(bayGroup);
     }
 
-    // Build Rack Blocks inside the Cube Facility:
+    // Block 1 (Southwest High-Bay): Leaves Central North Avenue (x = 6) and Inbound Lane (z = 16) completely open!
     for (let rx = -20; rx <= -4; rx += 3.6) {
       createRackBay(rx, -4.0, false);
       createRackBay(rx, 4.0, false);
       createRackBay(rx, -20.0, false);
     }
-    for (let rz = -18; rz <= 0; rz += 3.6) {
-      createRackBay(13.0, rz, true);
-    }
-    for (let rz = -18; rz <= 18; rz += 4.2) {
-      createRackBay(26.0, rz, true);
-    }
 
-    // 7. Staging Areas (Wooden Pallet Stacks & Floor Cones)
+    // Block 2 (Racks along x = 13.0): Leaves OPEN PORTAL for East Cross Highway (z in [-13.0, -7.0])!
+    [-22.0, -18.0, -14.5, -5.5, -2.0, 1.5].forEach(rz => {
+      createRackBay(13.0, rz, true);
+    });
+
+    // Block 3 (Racks along East wall x = 26.0): Leaves OPEN DOCK for Outbound Bay 4 (z in [4.0, 12.0])!
+    [-20.0, -15.0, -10.0, -5.0, 0.0, 14.0, 18.0, 22.0].forEach(rz => {
+      createRackBay(26.0, rz, true);
+    });
+
+    // Staging Pallet Stacks (in safe side zones)
     [-24.0, -12.0, 10.0, 22.0].forEach(sx => {
       [10.0, -22.0].forEach(sz => {
         for (let py = 0; py < 4; py++) {
@@ -1029,10 +998,9 @@
       });
     });
 
-    // Static Floor Obstacle Meshes
+    // Static Floor Obstacle Meshes (in designated side alcoves)
     function spawnStaticFloorObstacle(obs) {
       const g = new THREE.Group();
-      // 2D (obs.x, obs.y) -> 3D (obs.x, 0, -obs.y)
       g.position.set(obs.x, 0, -obs.y);
 
       if (obs.type === 'pallet_stack') {
@@ -1067,7 +1035,7 @@
     }
     staticObstacles.forEach(o => spawnStaticFloorObstacle(o));
 
-    // Docking & Destination Pads
+    // Docking Pads
     function createDockPad(x, z, label, colorHex = 0x10b981) {
       const padGroup = new THREE.Group();
       padGroup.position.set(x, 0.02, z);
@@ -1091,7 +1059,7 @@
     createDockPad(-24.0, 16.0, 'Inbound Bay 1', 0x38bdf8);
     createDockPad(26.0, 8.0, 'Outbound Bay 4', 0x10b981);
 
-    // --- 6. AGV 3D Model Construction (AMR-X1 with Pivoting Front Steer Wheel) ---
+    // --- 6. AGV 3D Model Construction (AMR-X1) ---
     function buildAMRModel() {
       const group = new THREE.Group();
 
@@ -1207,7 +1175,6 @@
 
     agvGroup = buildAMRModel();
 
-    // 3D Path Ribbon Visualization
     function updateTrajectoryRibbon() {
       if (trajectoryRibbonMesh) scene.remove(trajectoryRibbonMesh);
       if (!currentPath) return;
@@ -1233,7 +1200,6 @@
       scene.add(trajectoryRibbonMesh);
     }
 
-    // --- 7. Crossing Forklifts 3D Meshes ---
     function buildForkliftMesh(fl) {
       const group = new THREE.Group();
       const bodyMat = new THREE.MeshStandardMaterial({ color: 0xf97316, metalness: 0.5, roughness: 0.3 });
@@ -1305,36 +1271,29 @@
       activeYieldVehicle = null;
 
       if (forkliftsActive) {
-        // --- Forklift 1 (Crosses Central North Avenue horizontally at y = -2.0, z = 2.0) ---
+        // Forklift 1 (Crosses Central North Avenue horizontally at y = -2.0, z = 2.0)
         const fl1 = forklifts[0];
         const m1 = forkliftMeshes[0];
 
-        // AGV state relative to Intersection 1 (x = 6.0, y = -2.0):
-        // Stop line is at y = -5.0 (3.0m south of crossing line).
         const agvDistToCross1 = -2.0 - veh.y;
         const agvApproachingCross1 = (Math.abs(veh.x - 6.0) < 1.8 && agvDistToCross1 > 0.1 && agvDistToCross1 < 6.5);
         const agvOccupyingCross1 = (Math.abs(veh.x - 6.0) < 2.0 && veh.y >= -4.8 && veh.y <= 1.2);
 
-        // Forklift 1 state relative to avenue center (x = 6.0):
         const fl1DistToCenter = Math.abs(fl1.x - 6.0);
         const fl1Approaching = (fl1.x < 6.0 && fl1.dir > 0) || (fl1.x > 6.0 && fl1.dir < 0);
         const fl1InZone = (fl1DistToCenter < 3.2) || (fl1DistToCenter < 5.2 && fl1Approaching);
 
-        // MUTUAL YIELDING RULES:
         if (agvOccupyingCross1) {
-          // AGV is already in the intersection: Forklift MUST hold outside the aisle!
           if (fl1DistToCenter >= 2.8) {
             fl1.holding = true;
           }
         } else if (agvApproachingCross1 && fl1InZone) {
-          // Forklift is crossing: AGV yields and stops before the stop line (y = -5.0)!
           activeYieldVehicle = fl1;
           fl1.holding = false;
         } else {
           fl1.holding = false;
         }
 
-        // Advance Forklift 1 ONLY if NOT holding
         if (!fl1.holding) {
           fl1.x += fl1.dir * fl1.speed * dt * speedMultiplier;
           if (fl1.x > fl1.maxX) {
@@ -1347,21 +1306,17 @@
         }
 
         if (m1) {
-          // 2D (fl.x, fl.y) -> 3D (fl.x, 0, -fl.y) -> z = 2.0
           m1.position.set(fl1.x, 0, 2.0);
-          // Face East (+X, rotY = 0) or West (-X, rotY = Math.PI)
           m1.rotation.y = (fl1.dir > 0 ? 0 : Math.PI);
           if (m1.userData.beacon) {
             m1.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 14.0);
           }
         }
 
-        // --- Forklift 2 (Tugger AMR-02, Crosses East Crossway vertically at x = 13.0) ---
+        // Forklift 2 (Tugger AMR-02, Crosses East Crossway vertically at x = 13.0)
         const fl2 = forklifts[1];
         const m2 = forkliftMeshes[1];
 
-        // AGV state relative to Intersection 2 (x = 13.0, y = 10.0):
-        // Stop line is at x = 10.2 (2.8m west of crossing line).
         const agvDistToCross2 = 13.0 - veh.x;
         const agvApproachingCross2 = (Math.abs(veh.y - 10.0) < 1.8 && agvDistToCross2 > 0.1 && agvDistToCross2 < 6.0);
         const agvOccupyingCross2 = (Math.abs(veh.y - 10.0) < 2.0 && veh.x >= 10.2 && veh.x <= 15.2);
@@ -1393,26 +1348,37 @@
         }
 
         if (m2) {
-          // 2D (13.0, fl.y) -> 3D (13.0, 0, -fl.y)
           m2.position.set(13.0, 0, -fl2.y);
-          // Face North (+Y, -Z in 3D: rotY = Math.PI / 2) or South (-Y, +Z in 3D: rotY = -Math.PI / 2)
           m2.rotation.y = (fl2.dir > 0 ? Math.PI / 2 : -Math.PI / 2);
           if (m2.userData.beacon) {
             m2.userData.beacon.material.emissiveIntensity = 0.8 + 0.6 * Math.sin(simTime * 14.0);
           }
         }
 
-        // HARD DISTANCE COLLISION PREVENTER (Math Inviolability)
+        // Hard distance barrier
         forklifts.forEach(fl => {
           const directDist = Math.hypot(veh.x - fl.x, veh.y - fl.y);
           if (directDist < 2.6) {
-            // Immediately freeze both vehicles so they NEVER penetrate each other
             fl.holding = true;
           }
         });
       }
 
-      // Update Overhead Traffic Gantries
+      // Check for any obstacle directly ahead on the path
+      let staticBlockAhead = false;
+      if (courseActive) {
+        for (const obs of staticObstacles) {
+          const dx = obs.x - veh.x;
+          const dy = obs.y - veh.y;
+          const longDist = dx * Math.cos(veh.yaw) + dy * Math.sin(veh.yaw);
+          const latDist = -dx * Math.sin(veh.yaw) + dy * Math.cos(veh.yaw);
+          if (longDist > 0.2 && longDist < 3.2 && Math.abs(latDist) < 0.95) {
+            staticBlockAhead = true;
+            break;
+          }
+        }
+      }
+
       crossingGantries.forEach(g => {
         if (activeYieldVehicle) {
           const blink = (Math.sin(simTime * 14.0) > 0);
@@ -1447,10 +1413,25 @@
       const turnBadge = document.getElementById('turn-indicator-badge');
 
       if (activeYieldVehicle) {
-        // Complete safety stop at painted stop line!
         targetV = 0.0;
         if (hudStatus) {
           hudStatus.textContent = `[SAFETY STOP] YIELDING TO ${activeYieldVehicle.name.toUpperCase()}`;
+          hudStatus.className = 'font-bold text-red-400 text-sm animate-pulse tracking-wide';
+        }
+        if (lidarFanMat) {
+          lidarFanMat.color.setHex(0xef4444);
+          lidarFanMat.opacity = 0.55 + 0.25 * Math.sin(simTime * 14.0);
+        }
+        agvBrakeLights.forEach(b => {
+          b.material.color.setHex(0xff0000);
+          b.material.emissive.setHex(0xff0000);
+          b.material.emissiveIntensity = 2.5;
+        });
+        if (turnBadge) turnBadge.classList.add('hidden');
+      } else if (staticBlockAhead) {
+        targetV = 0.0; // Complete safety stop before obstacle!
+        if (hudStatus) {
+          hudStatus.textContent = '[SAFETY STOP] PATH OBSTRUCTED AHEAD';
           hudStatus.className = 'font-bold text-red-400 text-sm animate-pulse tracking-wide';
         }
         if (lidarFanMat) {
@@ -1510,11 +1491,10 @@
         if (turnBadge) turnBadge.classList.add('hidden');
       }
 
-      // Smooth Acceleration / Immediate Safety Braking
       if (veh.v < targetV) {
         veh.v = Math.min(targetV, veh.v + 0.65 * dt);
       } else {
-        veh.v = Math.max(targetV, veh.v - (activeYieldVehicle ? 2.5 : 0.85) * dt);
+        veh.v = Math.max(targetV, veh.v - (activeYieldVehicle || staticBlockAhead ? 2.5 : 0.85) * dt);
       }
 
       // --- C. Stanley / MPC Steering Law with Feedforward Curvature ---
