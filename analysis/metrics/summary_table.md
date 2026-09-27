@@ -13,8 +13,3 @@ Generated automatically by Snehal's Analytics Engine (`compute_metrics.py`).
 | `exp06_multi_dest_A` | **MPC** | 19.9 | 0.007 | 0.004 | 0.18° | 0.03 | 999.000 | 0 | 10.3 | 0.069 | ✅ PASS |
 | `exp06_multi_dest_B` | **MPC** | 26.9 | 0.007 | 0.004 | 0.20° | 0.04 | 999.000 | 0 | 10.4 | 0.070 | ✅ PASS |
 | `exp07_stress_test` | **MPC** | 15.9 | 0.011 | 0.006 | 0.26° | 0.04 | 0.000 | 11 | 10.3 | 0.072 | ⚠️ WARN |
-| `run_mpc_moving` | **MPC** | 24.3 | 0.029 | 0.007 | 0.85° | 1.43 | 1.206 | 0 | 2.2 | 0.086 | ✅ PASS |
-| `run_mpc_normal` | **MPC** | 5.0 | 0.014 | 0.006 | 0.44° | 0.03 | 999.000 | 0 | 105.0 | 23.758 | ⚠️ WARN |
-| `run_mpc_replan` | **MPC** | 24.6 | 0.028 | 0.007 | 0.85° | 1.75 | 0.410 | 0 | 2.2 | 0.084 | ✅ PASS |
-| `run_stanley_curved` | **STANLEY** | 23.6 | 0.212 | 0.124 | 1.64° | 0.26 | 999.000 | 0 | 0.0 | 0.084 | ⚠️ WARN |
-| `run_stanley_moving` | **STANLEY** | 23.6 | 0.212 | 0.124 | 1.64° | 0.26 | 1.089 | 0 | 0.0 | 0.084 | ⚠️ WARN |
